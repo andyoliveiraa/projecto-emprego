@@ -11,13 +11,23 @@ from matcher import match_job_with_cv, adapt_cv_anti_ai
 from cover_letter import generate_cover_letter
 import os
 import unicodedata
+from contextlib import asynccontextmanager
+import asyncio
+from worker import worker_loop
 
 def normalize_text(text: str) -> str:
     if not text:
         return ""
     return unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('utf-8').lower()
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Inicia o ciclo de extração e IA em background assim que o servidor web arranca
+    task = asyncio.create_task(worker_loop())
+    yield
+    task.cancel()
+
+app = FastAPI(lifespan=lifespan)
 init_db()
 
 os.makedirs("templates", exist_ok=True)
