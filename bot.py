@@ -100,21 +100,34 @@ async def job_scraper_task():
     if config and config.locations:
         locations = [l.strip() for l in config.locations.split(',')]
         
+    print(f"[DEBUG] A procurar nas localizações: {locations}")
+        
     jobs = await scraper_manager.run_all(locations)
+    print(f"[DEBUG] O scraper_manager retornou {len(jobs)} vagas no total.")
+    
     users = db.query(UserProfile).all()
+    print(f"[DEBUG] Utilizadores encontrados na BD: {len(users)}")
     
     if config and config.cv_text and config.discord_user_id:
+        print(f"[DEBUG] AppConfig tem um CV guardado para o Discord ID: {config.discord_user_id}")
         if not any(u.discord_id == config.discord_user_id for u in users):
             virtual_user = UserProfile(discord_id=config.discord_user_id, cv_text=config.cv_text)
             users.append(virtual_user)
+            print("[DEBUG] Utilizador virtual criado a partir da AppConfig.")
         else:
             for u in users:
                 if u.discord_id == config.discord_user_id:
                     u.cv_text = config.cv_text
     
+    valid_users = [u for u in users if u.cv_text]
+    print(f"[DEBUG] Há {len(valid_users)} utilizadores com CV pronto para o match.")
+    if not valid_users:
+        print("[DEBUG] Ninguém tem o CV guardado. A pesquisa vai ignorar a avaliação de Inteligência Artificial.")
+    
     for job in jobs:
         existing_job = db.query(Job).filter(Job.link == job["link"]).first()
         if not existing_job:
+            print(f"[DEBUG] Nova vaga encontrada: {job['title']} na plataforma {job['platform']}")
             new_job = Job(
                 title=job["title"],
                 company=job["company"],
@@ -127,25 +140,34 @@ async def job_scraper_task():
             db.commit()
             db.refresh(new_job)
             
-            for user in users:
-                if user.cv_text:
-                    match_info = match_job_with_cv(new_job.description, user.cv_text)
-                    new_job.match_score = match_info["score"]
-                    new_job.match_reason = match_info["reason"]
-                    db.commit()
-                    
-                    if match_info["score"] > 50:
-                        try:
-                            discord_user = await bot.fetch_user(int(user.discord_id))
-                            embed = discord.Embed(title=f"Nova vaga: {new_job.title}", url=new_job.link, color=0x00ff00)
-                            embed.add_field(name="Empresa", value=new_job.company, inline=True)
-                            embed.add_field(name="Localização", value=new_job.location, inline=True)
-                            embed.add_field(name="Plataforma", value=new_job.platform, inline=False)
-                            embed.add_field(name="Match Score", value=f"{new_job.match_score}%", inline=True)
-                            embed.add_field(name="Motivo", value=new_job.match_reason, inline=False)
-                            await discord_user.send(embed=embed)
-                        except Exception as e:
-                            print(f"Erro ao enviar DM para {user.discord_id}: {e}")
+            for user in valid_users:
+                print(f"[DEBUG] A calcular Match de {user.discord_id} com a vaga '{new_job.title}'...")
+                match_info = match_job_with_cv(new_job.description, user.cv_text)
+                print(f"[DEBUG] Match calculado: {match_info['score']}%")
+                
+                new_job.match_score = match_info["score"]
+                new_job.match_reason = match_info["reason"]
+                db.commit()
+                
+                if match_info["score"] > 50:
+                    print(f"[DEBUG] Match > 50%! A tentar enviar mensagem privada ao {user.discord_id}...")
+                    try:
+                        discord_user = await bot.fetch_user(int(user.discord_id))
+                        embed = discord.Embed(title=f"Nova vaga: {new_job.title}", url=new_job.link, color=0x00ff00)
+                        embed.add_field(name="Empresa", value=new_job.company, inline=True)
+                        embed.add_field(name="Localização", value=new_job.location, inline=True)
+                        embed.add_field(name="Plataforma", value=new_job.platform, inline=False)
+                        embed.add_field(name="Match Score", value=f"{new_job.match_score}%", inline=True)
+                        embed.add_field(name="Motivo", value=new_job.match_reason, inline=False)
+                        await discord_user.send(embed=embed)
+                        print(f"[DEBUG] Mensagem enviada com sucesso para {user.discord_id}!")
+                    except Exception as e:
+                        print(f"[DEBUG] Erro ao enviar DM para {user.discord_id}: {e}")
+                else:
+                    print(f"[DEBUG] Match muito baixo ({match_info['score']}%). Não será enviada DM.")
+        else:
+            pass # Vaga já existia no sistema
+            
     db.close()
     print("Pesquisa de vagas concluída.")
 

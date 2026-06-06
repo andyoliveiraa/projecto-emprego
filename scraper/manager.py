@@ -19,9 +19,11 @@ class ScraperManager:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         all_jobs = []
-        for res in results:
-            if isinstance(res, list):
-                all_jobs.extend(res)
+        for i, res in enumerate(results):
+            scraper_name = self.scrapers[i].__class__.__name__
+            if isinstance(res, Exception):
+                print(f"[DEBUG] Scraper error ({scraper_name}): {res}")
             else:
-                print(f"Scraper error: {res}")
+                print(f"[DEBUG] {scraper_name} retornou {len(res)} vagas.")
+                all_jobs.extend(res)
         return all_jobs
