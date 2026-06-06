@@ -15,28 +15,57 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_jobs(request: Request, db: Session = Depends(get_db)):
-    jobs = db.query(Job).order_by(Job.discovered_at.desc()).limit(100).all()
+    all_jobs = db.query(Job).order_by(Job.discovered_at.desc()).all()
     
     metrics = {
-        "total": len(jobs),
-        "applied": sum(1 for j in jobs if j.status == "Já fiz"),
-        "pending": sum(1 for j in jobs if j.status == "Não fiz"),
-        "rejected": sum(1 for j in jobs if j.status == "Não quero")
+        "total": len(all_jobs),
+        "applied": sum(1 for j in all_jobs if j.status == "Já fiz"),
+        "pending": sum(1 for j in all_jobs if j.status == "Não fiz"),
+        "rejected": sum(1 for j in all_jobs if j.status == "Não quero")
     }
+    
+    # Mostrar apenas pendentes na home
+    jobs = [j for j in all_jobs if j.status == "Não fiz"][:100]
     
     return templates.TemplateResponse(
         request=request, 
         name="index.html", 
-        context={"request": request, "jobs": jobs, "metrics": metrics}
+        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "pending"}
+    )
+
+@app.get("/applied", response_class=HTMLResponse)
+async def read_applied_jobs(request: Request, db: Session = Depends(get_db)):
+    all_jobs = db.query(Job).order_by(Job.discovered_at.desc()).all()
+    metrics = {
+        "total": len(all_jobs), "applied": sum(1 for j in all_jobs if j.status == "Já fiz"),
+        "pending": sum(1 for j in all_jobs if j.status == "Não fiz"), "rejected": sum(1 for j in all_jobs if j.status == "Não quero")
+    }
+    jobs = [j for j in all_jobs if j.status == "Já fiz"][:100]
+    return templates.TemplateResponse(
+        request=request, name="index.html", 
+        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "applied"}
+    )
+
+@app.get("/rejected", response_class=HTMLResponse)
+async def read_rejected_jobs(request: Request, db: Session = Depends(get_db)):
+    all_jobs = db.query(Job).order_by(Job.discovered_at.desc()).all()
+    metrics = {
+        "total": len(all_jobs), "applied": sum(1 for j in all_jobs if j.status == "Já fiz"),
+        "pending": sum(1 for j in all_jobs if j.status == "Não fiz"), "rejected": sum(1 for j in all_jobs if j.status == "Não quero")
+    }
+    jobs = [j for j in all_jobs if j.status == "Não quero"][:100]
+    return templates.TemplateResponse(
+        request=request, name="index.html", 
+        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "rejected"}
     )
 
 @app.post("/update_status/{job_id}")
-async def update_status(job_id: int, status: str = Form(...), db: Session = Depends(get_db)):
+async def update_status(job_id: int, status: str = Form(...), return_to: str = Form("/"), db: Session = Depends(get_db)):
     job = db.query(Job).filter(Job.id == job_id).first()
     if job:
         job.status = status
         db.commit()
-    return RedirectResponse(url="/", status_code=303)
+    return RedirectResponse(url=return_to, status_code=303)
 
 @app.get("/settings", response_class=HTMLResponse)
 async def get_settings(request: Request, db: Session = Depends(get_db)):
