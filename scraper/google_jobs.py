@@ -27,7 +27,7 @@ class GoogleJobsScraper:
         try:
             async with aiohttp.ClientSession() as session:
                 for loc in locations:
-                    url = f"https://serpapi.com/search.json?engine=google_jobs&q=vagas+de+emprego+{urllib.parse.quote(loc)}&hl=pt&gl=pt&api_key={api_key}"
+                    url = f"https://serpapi.com/search.json?engine=google_jobs&q=empregos&location={urllib.parse.quote(loc + ', Portugal')}&hl=pt&gl=pt&api_key={api_key}"
                     async with session.get(url) as response:
                         if response.status == 200:
                             data = await response.json()

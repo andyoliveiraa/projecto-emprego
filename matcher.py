@@ -1,4 +1,6 @@
 import os
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
 import google.generativeai as genai
 from dotenv import load_dotenv
 import json
@@ -38,7 +40,7 @@ def match_job_with_cv(job_title: str, job_description: str, job_location: str, t
     """
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash-8b') # O modelo super rápido sem rebentar a API
+        model = genai.GenerativeModel('gemini-1.5-flash') # Modelo flash standard, suportado em todos os projetos
         response = model.generate_content(prompt)
         text = response.text.strip()
         if text.startswith("```json"):
