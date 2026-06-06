@@ -1,13 +1,10 @@
 import os
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
-
-# Configure Gemini
 api_key = os.getenv("GEMINI_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
 
 def match_job_with_cv(job_description: str, cv_text: str) -> dict:
     if not cv_text or not job_description:
@@ -31,15 +28,17 @@ def match_job_with_cv(job_description: str, cv_text: str) -> dict:
     """
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
+        client = genai.Client(api_key=api_key) if api_key else genai.Client()
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
         text = response.text.strip()
         if text.startswith("```json"):
             text = text[7:-3].strip()
         elif text.startswith("```"):
             text = text[3:-3].strip()
             
-        import json
         result = json.loads(text)
         return {
             "score": float(result.get("score", 0)),

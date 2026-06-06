@@ -1,12 +1,9 @@
 import os
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
-
 api_key = os.getenv("GEMINI_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
 
 def generate_cover_letter(cv_text: str, company_name: str) -> str:
     prompt = f"""
@@ -21,8 +18,11 @@ def generate_cover_letter(cv_text: str, company_name: str) -> str:
     """
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-pro')
-        response = model.generate_content(prompt)
+        client = genai.Client(api_key=api_key) if api_key else genai.Client()
+        response = client.models.generate_content(
+            model='gemini-2.5-pro',
+            contents=prompt,
+        )
         return response.text.strip()
     except Exception as e:
         print(f"Error generating cover letter: {e}")
