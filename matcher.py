@@ -37,7 +37,7 @@ def match_job_with_cv(job_title: str, job_description: str, job_location: str, t
     try:
         client = genai.Client(api_key=api_key) if api_key else genai.Client()
         response = client.models.generate_content(
-            model='gemma-2-27b-it',
+            model='gemini-1.5-flash-8b',
             contents=prompt,
         )
         text = response.text.strip()
