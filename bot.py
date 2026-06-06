@@ -1,6 +1,7 @@
 import os
 import discord
 from discord.ext import commands, tasks
+from discord import app_commands
 from dotenv import load_dotenv
 import asyncio
 
@@ -13,8 +14,8 @@ from utils import extract_text_from_pdf
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
+# Removemos o message_content=True para evitar o erro PrivilegedIntentsRequired
 intents = discord.Intents.default()
-intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 scraper_manager = ScraperManager()
@@ -23,62 +24,71 @@ scraper_manager = ScraperManager()
 async def on_ready():
     print(f"{bot.user} has connected to Discord!")
     init_db()
+    
+    # Sincronizar os slash commands
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} command(s)")
+    except Exception as e:
+        print(e)
+        
     if not job_scraper_task.is_running():
         job_scraper_task.start()
 
-@bot.command(name="setcv")
-async def set_cv(ctx):
-    if not ctx.message.attachments:
-        await ctx.send("Por favor, anexa o teu CV em formato PDF junto com o comando `!setcv`.")
+@bot.tree.command(name="setcv", description="Carrega o teu currículo em formato PDF")
+@app_commands.describe(ficheiro="O ficheiro PDF do teu currículo")
+async def set_cv(interaction: discord.Interaction, ficheiro: discord.Attachment):
+    if not ficheiro.filename.endswith(".pdf"):
+        await interaction.response.send_message("O ficheiro deve ser um PDF.", ephemeral=True)
         return
         
-    attachment = ctx.message.attachments[0]
-    if not attachment.filename.endswith(".pdf"):
-        await ctx.send("O ficheiro deve ser um PDF.")
-        return
-        
-    pdf_bytes = await attachment.read()
+    pdf_bytes = await ficheiro.read()
     cv_text = extract_text_from_pdf(pdf_bytes)
     
     if not cv_text:
-        await ctx.send("Não foi possível extrair o texto do PDF. Verifica se não é uma imagem.")
+        await interaction.response.send_message("Não foi possível extrair texto. Verifica se não é imagem.", ephemeral=True)
         return
         
     db = SessionLocal()
-    user = db.query(UserProfile).filter(UserProfile.discord_id == str(ctx.author.id)).first()
+    user = db.query(UserProfile).filter(UserProfile.discord_id == str(interaction.user.id)).first()
     if not user:
-        user = UserProfile(discord_id=str(ctx.author.id), cv_text=cv_text)
+        user = UserProfile(discord_id=str(interaction.user.id), cv_text=cv_text)
         db.add(user)
     else:
         user.cv_text = cv_text
     db.commit()
     db.close()
     
-    await ctx.send("✅ O teu CV foi atualizado com sucesso e será usado para as pesquisas de emprego!")
+    await interaction.response.send_message("✅ O teu CV foi atualizado com sucesso!", ephemeral=True)
 
-@bot.command(name="carta")
-async def carta_motivacao(ctx, *, empresa: str = None):
-    if not empresa:
-        await ctx.send("Uso correto: `!carta <nome_da_empresa>`")
-        return
-        
+@bot.tree.command(name="carta", description="Gera uma carta de motivação humana para uma empresa")
+@app_commands.describe(empresa="O nome da empresa à qual te queres candidatar")
+async def carta_motivacao(interaction: discord.Interaction, empresa: str):
+    await interaction.response.defer(ephemeral=True)
+    
     db = SessionLocal()
-    user = db.query(UserProfile).filter(UserProfile.discord_id == str(ctx.author.id)).first()
+    user = db.query(UserProfile).filter(UserProfile.discord_id == str(interaction.user.id)).first()
+    config = db.query(AppConfig).first()
     db.close()
     
-    if not user or not user.cv_text:
-        await ctx.send("Ainda não submeteste o teu CV. Usa `!setcv` anexando um PDF.")
+    cv_text = None
+    if user and user.cv_text:
+        cv_text = user.cv_text
+    elif config and config.cv_text and str(interaction.user.id) == config.discord_user_id:
+        cv_text = config.cv_text
+        
+    if not cv_text:
+        await interaction.followup.send("Ainda não submeteste o teu CV. Usa /setcv ou a página web.")
         return
         
-    await ctx.send(f"A redigir a carta para a {empresa} de forma humana. Aguarda um momento...")
-    carta = generate_cover_letter(user.cv_text, empresa)
+    carta = generate_cover_letter(cv_text, empresa)
     
     if len(carta) > 1900:
         import io
         file = discord.File(io.BytesIO(carta.encode('utf-8')), filename=f"carta_{empresa}.txt")
-        await ctx.send("Aqui está a tua carta de motivação:", file=file)
+        await interaction.followup.send("Aqui está a tua carta de motivação:", file=file)
     else:
-        await ctx.send(f"```text\n{carta}\n```")
+        await interaction.followup.send(f"```text\n{carta}\n```")
 
 @tasks.loop(hours=1)
 async def job_scraper_task():
@@ -93,14 +103,11 @@ async def job_scraper_task():
     jobs = await scraper_manager.run_all(locations)
     users = db.query(UserProfile).all()
     
-    # Criar um user virtual se o CV estiver na AppConfig
     if config and config.cv_text and config.discord_user_id:
-        # Evitar duplicados se o utilizador já usou !setcv
         if not any(u.discord_id == config.discord_user_id for u in users):
             virtual_user = UserProfile(discord_id=config.discord_user_id, cv_text=config.cv_text)
             users.append(virtual_user)
         else:
-            # Substituir o CV do discord se houver um na AppConfig? Fica à escolha, vamos atualizar o text.
             for u in users:
                 if u.discord_id == config.discord_user_id:
                     u.cv_text = config.cv_text
