@@ -21,7 +21,7 @@ class GoogleJobsScraper:
         jobs = []
         
         if not api_key:
-            print("[DEBUG] SERPAPI_KEY não encontrada no .env. Ignorando Google Jobs.")
+            print("🚨 [ERRO CRÍTICO] SERPAPI_KEY não encontrada no .env ou nas variáveis da Discloud! O Google Jobs precisa disto para funcionar.")
             return jobs
             
         try:
@@ -31,6 +31,11 @@ class GoogleJobsScraper:
                     async with session.get(url) as response:
                         if response.status == 200:
                             data = await response.json()
+                            if "error" in data:
+                                print(f"🚨 [ERRO SERPAPI] {data['error']}")
+                            if "jobs_results" not in data:
+                                print(f"[DEBUG] SerpApi devolveu 0 resultados para {loc}.")
+                            
                             for result in data.get("jobs_results", [])[:20]:
                                 title = result.get("title", "Vaga Google Jobs")
                                 company = result.get("company_name", "Confidencial")

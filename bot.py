@@ -135,13 +135,13 @@ async def job_scraper_task():
         if not existing_job:
             print(f"[DEBUG] Nova vaga encontrada: {job['title']} na plataforma {job['platform']}")
             
-            # Filtro Primário
-            job_loc_norm = normalize_text(job['location'])
-            is_valid_loc = any(normalize_text(loc) in job_loc_norm for loc in locations)
+            # Filtro Primário (Título + Local + Descrição)
+            job_text_norm = normalize_text(job['title'] + " " + job['location'] + " " + job['description'])
+            is_valid_loc = any(normalize_text(loc) in job_text_norm for loc in locations)
             
             initial_status = "Não fiz"
             if not is_valid_loc:
-                print(f"[DEBUG] Rejeitada no Filtro Primário (Local: {job['location']}).")
+                print(f"[DEBUG] Rejeitada no Filtro Primário (Localidade não mencionada).")
                 initial_status = "Lixo"
                 
             new_job = Job(
@@ -162,7 +162,7 @@ async def job_scraper_task():
             
             for user in valid_users:
                 print(f"[DEBUG] A calcular Match de {user.discord_id} com a vaga '{new_job.title}'...")
-                match_info = match_job_with_cv(new_job.description, new_job.location, locations, user.cv_text)
+                match_info = match_job_with_cv(new_job.title, new_job.description, new_job.location, locations, user.cv_text)
                 print(f"[DEBUG] Match calculado: {match_info['score']}%")
                 
                 new_job.match_score = match_info["score"]
