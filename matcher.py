@@ -40,7 +40,7 @@ def match_job_with_cv(job_title: str, job_description: str, job_location: str, t
     """
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash') # Modelo flash standard, suportado em todos os projetos
+        model = genai.GenerativeModel('gemini-2.0-flash-lite') # Modelo flash standard, suportado em todos os projetos
         response = model.generate_content(prompt)
         text = response.text.strip()
         if text.startswith("```json"):
