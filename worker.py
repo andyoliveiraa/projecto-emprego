@@ -1,9 +1,10 @@
 import asyncio
 import aiohttp
-from database import SessionLocal, Job, UserJobMatch, User
+from database import SessionLocal, Job, UserJobMatch, User, SearchLog
 from scraper.manager import ScraperManager
 from matcher import match_job_with_cv
 import unicodedata
+import json
 
 scraper_manager = ScraperManager()
 
@@ -113,6 +114,113 @@ async def run_scraper_cycle():
                 
     db.close()
     print("[Worker] Ciclo concluído.")
+
+async def log_and_yield(db, user_id, message, level="INFO"):
+    log = SearchLog(user_id=user_id, message=message, level=level)
+    db.add(log)
+    db.commit()
+    print(f"[Worker - User {user_id}] {message}")
+    return f"data: {json.dumps({'message': message, 'level': level})}\n\n"
+
+async def run_scraper_for_user_stream(user_id: int):
+    db = SessionLocal()
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        yield await log_and_yield(db, user_id, "Utilizador não encontrado", "ERROR")
+        db.close()
+        return
+
+    yield await log_and_yield(db, user.id, f"A iniciar busca forçada para {user.username}...")
+    
+    locations = [l.strip() for l in user.locations.split(',')] if user.locations else ["Covilhã", "Remoto"]
+    yield await log_and_yield(db, user.id, f"A procurar nas localizações: {', '.join(locations)}...")
+    
+    try:
+        jobs_data = await scraper_manager.run_all(locations)
+    except Exception as e:
+        yield await log_and_yield(db, user.id, f"Erro crítico na extração: {e}", "ERROR")
+        db.close()
+        return
+        
+    yield await log_and_yield(db, user.id, f"Foram extraídas {len(jobs_data)} vagas globais.")
+    
+    novas = 0
+    analisadas = 0
+    matches_encontrados = 0
+    
+    for job_data in jobs_data:
+        job = db.query(Job).filter(Job.link == job_data["link"]).first()
+        if not job:
+            job = Job(
+                title=job_data["title"],
+                company=job_data["company"],
+                location=job_data["location"],
+                link=job_data["link"],
+                platform=job_data["platform"],
+                description=job_data["description"]
+            )
+            db.add(job)
+            db.commit()
+            db.refresh(job)
+            novas += 1
+            
+        match_exists = db.query(UserJobMatch).filter(UserJobMatch.user_id == user.id, UserJobMatch.job_id == job.id).first()
+        if match_exists:
+            continue
+            
+        analisadas += 1
+        
+        job_text_norm = normalize_text(job.title + " " + job.location + " " + (job.description or ""))
+        is_valid_loc = any(normalize_text(loc) in job_text_norm for loc in locations)
+        
+        if not is_valid_loc:
+            match = UserJobMatch(user_id=user.id, job_id=job.id, status="Lixo")
+            db.add(match)
+            db.commit()
+            continue
+            
+        if not user.cv_text:
+            yield await log_and_yield(db, user.id, f"Sem CV para a vaga '{job.title}'. Marcado como Pendente.", "WARNING")
+            match = UserJobMatch(user_id=user.id, job_id=job.id, status="Não fiz")
+            db.add(match)
+            db.commit()
+            continue
+            
+        yield await log_and_yield(db, user.id, f"A enviar para IA: '{job.title}'...")
+        
+        try:
+            match_info = match_job_with_cv(job.title, job.description, job.location, locations, user.cv_text)
+            
+            status = "Não fiz"
+            if match_info["score"] == 0:
+                status = "Lixo"
+            else:
+                matches_encontrados += 1
+                
+            match = UserJobMatch(
+                user_id=user.id,
+                job_id=job.id,
+                match_score=match_info["score"],
+                match_reason=match_info["reason"],
+                status=status
+            )
+            db.add(match)
+            db.commit()
+            
+            level = "SUCCESS" if match_info['score'] > 50 else "INFO"
+            yield await log_and_yield(db, user.id, f"Resultado IA: {match_info['score']}% - Motivo: {match_info['reason'][:60]}...", level)
+            
+            if match.match_score > 50 and status != "Lixo" and user.webhook_url:
+                await send_discord_webhook(user.webhook_url, job.title, job.company, job.location, match.match_score, match.match_reason, job.link, job.platform)
+                yield await log_and_yield(db, user.id, "Notificação enviada para o Discord!", "SUCCESS")
+            
+            yield await log_and_yield(db, user.id, "Aguardando 16 segundos para respeitar limite da Google API...")
+            await asyncio.sleep(16)
+        except Exception as e:
+            yield await log_and_yield(db, user.id, f"Erro de IA: {str(e)}", "ERROR")
+            
+    yield await log_and_yield(db, user.id, f"Busca terminada! {novas} novas no portal, {analisadas} para ti, {matches_encontrados} passaram no filtro IA.", "SUCCESS")
+    db.close()
 
 async def worker_loop():
     while True:

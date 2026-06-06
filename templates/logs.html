@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histórico de Logs - Empregos Matcher</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151b2b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #a855f7;
+            --success: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
+        }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            background-image: radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.1) 0%, transparent 50%);
+            background-attachment: fixed;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto 2rem auto;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 1rem;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+            background: -webkit-linear-gradient(45deg, #a855f7, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+            margin-left: 0.5rem;
+        }
+        .nav-links a:hover {
+            color: var(--text-primary);
+            background-color: rgba(255,255,255,0.05);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .terminal-container {
+            background: #0a0a0a;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            padding: 1.5rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            max-height: 75vh;
+            overflow-y: auto;
+        }
+        .log-row {
+            display: flex;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 0.5rem;
+        }
+        .log-time {
+            color: #64748b;
+            min-width: 160px;
+            user-select: none;
+        }
+        .log-INFO .log-msg { color: #f8fafc; }
+        .log-SUCCESS .log-msg { color: #4ade80; }
+        .log-WARNING .log-msg { color: #facc15; }
+        .log-ERROR .log-msg { color: #f87171; }
+        
+        .empty-state {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 3rem;
+            font-style: italic;
+        }
+        
+        /* Scrollbar styles */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.5); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.8); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📜 Histórico de Logs</h1>
+        <div class="nav-links">
+            <a href="/">⬅️ Voltar ao Painel</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="terminal-container">
+            {% if logs %}
+                {% for log in logs %}
+                <div class="log-row log-{{ log.level }}">
+                    <div class="log-time">[{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}]</div>
+                    <div class="log-msg">> {{ log.message }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">Ainda não tens nenhum histórico de buscas. Clica no botão "Iniciar Busca de Empregos" no painel principal!</div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Depends, Form, UploadFile, File, Cookie, R
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from database import get_db, User, Job, UserJobMatch, init_db
+from database import get_db, User, Job, UserJobMatch, init_db, SearchLog
 from auth import get_password_hash, verify_password, create_access_token, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from datetime import timedelta
 from jose import jwt, JWTError
@@ -13,7 +13,8 @@ import os
 import unicodedata
 from contextlib import asynccontextmanager
 import asyncio
-from worker import worker_loop
+from worker import worker_loop, run_scraper_for_user_stream
+from fastapi.responses import StreamingResponse
 
 def normalize_text(text: str) -> str:
     if not text:
@@ -191,3 +192,21 @@ async def api_generate_cv(job_id: int, db: Session = Depends(get_db), current_us
     
     cv = adapt_cv_anti_ai(current_user.cv_text, match.job.title, match.job.description)
     return {"result": cv}
+
+@app.get("/api/search/stream")
+async def api_search_stream(current_user: User = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Não autorizado")
+    return StreamingResponse(run_scraper_for_user_stream(current_user.id), media_type="text/event-stream")
+
+@app.get("/logs", response_class=HTMLResponse)
+async def logs_page(request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user: return RedirectResponse(url="/login", status_code=303)
+    
+    user_logs = db.query(SearchLog).filter(SearchLog.user_id == current_user.id).order_by(SearchLog.created_at.desc()).limit(200).all()
+    
+    return templates.TemplateResponse(
+        request=request, 
+        name="logs.html", 
+        context={"request": request, "user": current_user, "logs": user_logs}
+    )

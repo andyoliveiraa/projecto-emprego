@@ -17,6 +17,17 @@ class User(Base):
     cv_text = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     matches = relationship("UserJobMatch", back_populates="user")
+    logs = relationship("SearchLog", back_populates="user", cascade="all, delete-orphan")
+
+class SearchLog(Base):
+    __tablename__ = "search_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    message = Column(Text)
+    level = Column(String, default="INFO") # INFO, ERROR, WARNING, SUCCESS
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User", back_populates="logs")
 
 class Job(Base):
     __tablename__ = "jobs"

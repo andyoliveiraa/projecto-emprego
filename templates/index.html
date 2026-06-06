@@ -259,6 +259,84 @@
             color: #d8b4fe;
             border-color: var(--accent);
         }
+        
+        /* Modal do Terminal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .terminal-window {
+            background: #0a0a0a;
+            border: 1px solid rgba(168, 85, 247, 0.5);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            height: 70vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        .terminal-header {
+            background: #1a1a1a;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+        .terminal-title {
+            color: #fff;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .terminal-close {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        .terminal-body {
+            padding: 1rem;
+            flex-grow: 1;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .log-line { margin-bottom: 0.25rem; }
+        .log-INFO { color: #fff; }
+        .log-SUCCESS { color: #4ade80; }
+        .log-WARNING { color: #facc15; }
+        .log-ERROR { color: #f87171; }
+        
+        .btn-force-search {
+            background: linear-gradient(45deg, #a855f7, #ec4899);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .btn-force-search:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(168, 85, 247, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -266,11 +344,18 @@
         <div style="flex: 1;"></div>
         <h1 style="flex: 2; margin-bottom: 0;">Empregos Matcher</h1>
         <div style="flex: 1; text-align: right; display: flex; gap: 1rem; justify-content: flex-end;">
+            <a href="/logs" style="color: var(--text-secondary); text-decoration: none; padding: 0.5rem 1rem;">📜 Histórico</a>
             <a href="/settings" style="color: var(--text-secondary); text-decoration: none; padding: 0.5rem 1rem;">⚙️ Perfil</a>
             <a href="/logout" style="color: #ef4444; text-decoration: none; border: 1px solid #ef4444; padding: 0.5rem 1rem; border-radius: 8px;">Sair</a>
         </div>
     </div>
     <div class="subtitle" style="margin-top: 0.5rem;">O teu assistente de inteligência artificial para procurar emprego.</div>
+
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <button id="btnStartSearch" class="btn-force-search">
+            <span>🚀</span> Iniciar Busca de Empregos
+        </button>
+    </div>
 
     <div class="metrics-panel">
         <div class="metric-card">
@@ -347,5 +432,76 @@
             <p style="text-align: center; color: var(--text-secondary); grid-column: 1/-1;">Não há vagas registadas ainda.</p>
         {% endif %}
     </div>
+
+    <!-- Modal do Terminal -->
+    <div id="terminalModal" class="modal-overlay">
+        <div class="terminal-window">
+            <div class="terminal-header">
+                <div class="terminal-title">
+                    <span style="display:inline-block; width:10px; height:10px; background:#a855f7; border-radius:50%; animation: pulse 1.5s infinite;"></span>
+                    A processar busca com IA...
+                </div>
+                <button id="btnCloseTerminal" class="terminal-close">✖</button>
+            </div>
+            <div id="terminalBody" class="terminal-body">
+                <!-- Logs aparecerão aqui -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const btnStartSearch = document.getElementById('btnStartSearch');
+        const terminalModal = document.getElementById('terminalModal');
+        const btnCloseTerminal = document.getElementById('btnCloseTerminal');
+        const terminalBody = document.getElementById('terminalBody');
+        let eventSource = null;
+
+        btnStartSearch.addEventListener('click', () => {
+            terminalModal.style.display = 'flex';
+            terminalBody.innerHTML = '<div class="log-line log-INFO">> Conectando aos servidores da Google e plataformas de emprego...</div>';
+            
+            if (eventSource) eventSource.close();
+            
+            eventSource = new EventSource('/api/search/stream');
+            
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                const line = document.createElement('div');
+                line.className = `log-line log-${data.level}`;
+                
+                const time = new Date().toLocaleTimeString('pt-PT', {hour12: false});
+                line.textContent = `[${time}] > ${data.message}`;
+                
+                terminalBody.appendChild(line);
+                terminalBody.scrollTop = terminalBody.scrollHeight;
+                
+                if (data.message.includes("Busca terminada") || data.level === "ERROR" && data.message.includes("crítico")) {
+                    eventSource.close();
+                    const endLine = document.createElement('div');
+                    endLine.className = 'log-line log-INFO';
+                    endLine.textContent = `\n[Processo Concluído. Podes fechar esta janela para veres os resultados no painel.]`;
+                    terminalBody.appendChild(endLine);
+                    terminalBody.scrollTop = terminalBody.scrollHeight;
+                }
+            };
+            
+            eventSource.onerror = function(err) {
+                eventSource.close();
+            };
+        });
+
+        btnCloseTerminal.addEventListener('click', () => {
+            terminalModal.style.display = 'none';
+            if (eventSource) eventSource.close();
+            window.location.reload(); // Recarregar para ver as novas vagas
+        });
+    </script>
+    <style>
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; box-shadow: 0 0 10px #a855f7; }
+            100% { opacity: 0.5; }
+        }
+    </style>
 </body>
 </html>
