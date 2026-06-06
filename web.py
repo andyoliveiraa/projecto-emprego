@@ -52,13 +52,13 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="login.html", context={"request": request})
 
 @app.post("/login")
-async def login(response: Response, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+async def login(request: Request, response: Response, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == username).first()
     if not user or not verify_password(password, user.password_hash):
-        return templates.TemplateResponse("login.html", {"request": {}, "error": "Credenciais inválidas"})
+        return templates.TemplateResponse(request=request, name="login.html", context={"request": request, "error": "Credenciais inválidas"})
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -70,12 +70,12 @@ async def login(response: Response, username: str = Form(...), password: str = F
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="register.html", context={"request": request})
 
 @app.post("/register")
-async def register(username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+async def register(request: Request, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == username).first():
-        return templates.TemplateResponse("register.html", {"request": {}, "error": "Utilizador já existe"})
+        return templates.TemplateResponse(request=request, name="register.html", context={"request": request, "error": "Utilizador já existe"})
     
     hashed_password = get_password_hash(password)
     new_user = User(username=username, password_hash=hashed_password)
@@ -122,8 +122,9 @@ def render_dashboard(request, current_user, db, target_status, current_page, loc
     matches = matches[:100]
     
     return templates.TemplateResponse(
-        "index.html", 
-        {"request": request, "user": current_user, "matches": matches, "metrics": metrics, "current_page": current_page, "current_loc": loc}
+        request=request,
+        name="index.html", 
+        context={"request": request, "user": current_user, "matches": matches, "metrics": metrics, "current_page": current_page, "current_loc": loc}
     )
 
 @app.post("/update_status/{match_id}")
@@ -138,7 +139,7 @@ async def update_status(match_id: int, status: str = Form(...), return_to: str =
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request, current_user: User = Depends(get_current_user)):
     if not current_user: return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("settings.html", {"request": request, "user": current_user})
+    return templates.TemplateResponse(request=request, name="settings.html", context={"request": request, "user": current_user})
 
 @app.post("/settings")
 async def save_settings(
@@ -169,7 +170,7 @@ async def job_detail_page(request: Request, job_id: int, db: Session = Depends(g
     if not match:
         return RedirectResponse(url="/", status_code=303)
     
-    return templates.TemplateResponse("job_detail.html", {"request": request, "user": current_user, "match": match})
+    return templates.TemplateResponse(request=request, name="job_detail.html", context={"request": request, "user": current_user, "match": match})
 
 @app.post("/api/generate/carta/{job_id}")
 async def api_generate_carta(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
