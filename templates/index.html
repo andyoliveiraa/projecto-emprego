@@ -231,6 +231,34 @@
             color: var(--accent);
             border-bottom: 2px solid var(--accent);
         }
+        
+        /* Location Filters */
+        .loc-filters {
+            display: flex;
+            gap: 0.5rem;
+            max-width: 1200px;
+            margin: 0 auto 2rem auto;
+            flex-wrap: wrap;
+        }
+        .loc-chip {
+            background-color: rgba(255,255,255,0.05);
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .loc-chip:hover {
+            background-color: rgba(255,255,255,0.1);
+            color: var(--text-primary);
+        }
+        .loc-chip.active {
+            background-color: var(--accent-light);
+            color: #d8b4fe;
+            border-color: var(--accent);
+        }
     </style>
 </head>
 <body>
@@ -263,9 +291,17 @@
     </div>
 
     <div class="tabs">
-        <a href="/" class="tab {% if current_page == 'pending' %}active{% endif %}">🕒 Pendentes ({{ metrics.pending }})</a>
-        <a href="/applied" class="tab {% if current_page == 'applied' %}active{% endif %}">✅ Já Submetidas ({{ metrics.applied }})</a>
-        <a href="/rejected" class="tab {% if current_page == 'rejected' %}active{% endif %}">❌ Rejeitadas ({{ metrics.rejected }})</a>
+        <a href="/{% if current_loc %}?loc={{ current_loc }}{% endif %}" class="tab {% if current_page == 'pending' %}active{% endif %}">🕒 Pendentes ({{ metrics.pending }})</a>
+        <a href="/applied{% if current_loc %}?loc={{ current_loc }}{% endif %}" class="tab {% if current_page == 'applied' %}active{% endif %}">✅ Já Submetidas ({{ metrics.applied }})</a>
+        <a href="/rejected{% if current_loc %}?loc={{ current_loc }}{% endif %}" class="tab {% if current_page == 'rejected' %}active{% endif %}">❌ Rejeitadas ({{ metrics.rejected }})</a>
+    </div>
+
+    <div class="loc-filters">
+        {% set base_url = '/' if current_page == 'pending' else '/' + current_page %}
+        <a href="{{ base_url }}" class="loc-chip {% if not current_loc %}active{% endif %}">🌐 Todas</a>
+        <a href="{{ base_url }}?loc=Covilhã" class="loc-chip {% if current_loc == 'Covilhã' %}active{% endif %}">📍 Covilhã</a>
+        <a href="{{ base_url }}?loc=Mirandela" class="loc-chip {% if current_loc == 'Mirandela' %}active{% endif %}">📍 Mirandela</a>
+        <a href="{{ base_url }}?loc=Remoto" class="loc-chip {% if current_loc == 'Remoto' %}active{% endif %}">🏠 Remoto</a>
     </div>
 
     <div class="container">

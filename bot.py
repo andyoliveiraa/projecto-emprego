@@ -142,7 +142,7 @@ async def job_scraper_task():
             
             for user in valid_users:
                 print(f"[DEBUG] A calcular Match de {user.discord_id} com a vaga '{new_job.title}'...")
-                match_info = match_job_with_cv(new_job.description, user.cv_text)
+                match_info = match_job_with_cv(new_job.description, new_job.location, locations, user.cv_text)
                 print(f"[DEBUG] Match calculado: {match_info['score']}%")
                 
                 new_job.match_score = match_info["score"]

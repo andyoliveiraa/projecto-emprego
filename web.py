@@ -6,6 +6,12 @@ from sqlalchemy.orm import Session
 from database import get_db, Job, AppConfig, init_db
 from utils import extract_text_from_pdf
 import os
+import unicodedata
+
+def normalize_text(text: str) -> str:
+    if not text:
+        return ""
+    return unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('utf-8').lower()
 
 app = FastAPI()
 init_db()
@@ -14,8 +20,10 @@ os.makedirs("templates", exist_ok=True)
 templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
-async def read_jobs(request: Request, db: Session = Depends(get_db)):
-    all_jobs = db.query(Job).order_by(Job.discovered_at.desc()).all()
+async def read_jobs(request: Request, loc: str = None, db: Session = Depends(get_db)):
+    all_jobs = db.query(Job).all()
+    # Ordenar por Covilhã (com ou sem til) primeiro, depois por match_score
+    all_jobs.sort(key=lambda x: (1 if x.location and "covilha" in normalize_text(x.location) else 0, x.match_score or 0), reverse=True)
     
     metrics = {
         "total": len(all_jobs),
@@ -24,39 +32,51 @@ async def read_jobs(request: Request, db: Session = Depends(get_db)):
         "rejected": sum(1 for j in all_jobs if j.status == "Não quero")
     }
     
+    
     # Mostrar apenas pendentes na home
-    jobs = [j for j in all_jobs if j.status == "Não fiz"][:100]
+    jobs = [j for j in all_jobs if j.status == "Não fiz"]
+    if loc:
+        jobs = [j for j in jobs if j.location and normalize_text(loc) in normalize_text(j.location)]
+    jobs = jobs[:100]
     
     return templates.TemplateResponse(
         request=request, 
         name="index.html", 
-        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "pending"}
+        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "pending", "current_loc": loc}
     )
 
 @app.get("/applied", response_class=HTMLResponse)
-async def read_applied_jobs(request: Request, db: Session = Depends(get_db)):
-    all_jobs = db.query(Job).order_by(Job.discovered_at.desc()).all()
+async def read_applied_jobs(request: Request, loc: str = None, db: Session = Depends(get_db)):
+    all_jobs = db.query(Job).all()
+    all_jobs.sort(key=lambda x: (1 if x.location and "covilha" in normalize_text(x.location) else 0, x.match_score or 0), reverse=True)
     metrics = {
         "total": len(all_jobs), "applied": sum(1 for j in all_jobs if j.status == "Já fiz"),
         "pending": sum(1 for j in all_jobs if j.status == "Não fiz"), "rejected": sum(1 for j in all_jobs if j.status == "Não quero")
     }
-    jobs = [j for j in all_jobs if j.status == "Já fiz"][:100]
+    jobs = [j for j in all_jobs if j.status == "Já fiz"]
+    if loc:
+        jobs = [j for j in jobs if j.location and normalize_text(loc) in normalize_text(j.location)]
+    jobs = jobs[:100]
     return templates.TemplateResponse(
         request=request, name="index.html", 
-        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "applied"}
+        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "applied", "current_loc": loc}
     )
 
 @app.get("/rejected", response_class=HTMLResponse)
-async def read_rejected_jobs(request: Request, db: Session = Depends(get_db)):
-    all_jobs = db.query(Job).order_by(Job.discovered_at.desc()).all()
+async def read_rejected_jobs(request: Request, loc: str = None, db: Session = Depends(get_db)):
+    all_jobs = db.query(Job).all()
+    all_jobs.sort(key=lambda x: (1 if x.location and "covilha" in normalize_text(x.location) else 0, x.match_score or 0), reverse=True)
     metrics = {
         "total": len(all_jobs), "applied": sum(1 for j in all_jobs if j.status == "Já fiz"),
         "pending": sum(1 for j in all_jobs if j.status == "Não fiz"), "rejected": sum(1 for j in all_jobs if j.status == "Não quero")
     }
-    jobs = [j for j in all_jobs if j.status == "Não quero"][:100]
+    jobs = [j for j in all_jobs if j.status == "Não quero"]
+    if loc:
+        jobs = [j for j in jobs if j.location and normalize_text(loc) in normalize_text(j.location)]
+    jobs = jobs[:100]
     return templates.TemplateResponse(
         request=request, name="index.html", 
-        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "rejected"}
+        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "rejected", "current_loc": loc}
     )
 
 @app.post("/update_status/{job_id}")

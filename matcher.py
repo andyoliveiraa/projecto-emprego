@@ -6,7 +6,7 @@ import json
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
-def match_job_with_cv(job_description: str, cv_text: str) -> dict:
+def match_job_with_cv(job_description: str, job_location: str, target_locations: list[str], cv_text: str) -> dict:
     if not cv_text or not job_description:
         return {"score": 0.0, "reason": "CV or Job description missing."}
         
@@ -15,7 +15,9 @@ def match_job_with_cv(job_description: str, cv_text: str) -> dict:
     I will provide you with a Job Description and a Candidate's CV.
     Your task is to analyze how well the CV matches the Job Description.
 
-    CRITICAL RULE: If the Job Description is written in English or any language other than Portuguese, you MUST return a score of 0, and the reason should be "A vaga não está escrita em Português."
+    CRITICAL RULE 1: If the Job Description is written in English or any language other than Portuguese, you MUST return a score of 0, and the reason should be "A vaga não está escrita em Português."
+    
+    CRITICAL RULE 2: The candidate is ONLY looking for jobs in these locations: {", ".join(target_locations)}. The current job's stated location is: "{job_location}". If the job is located outside of these target locations (e.g. United States, Brazil, or a different city in Portugal that is not Remote), you MUST return a score of 0, and the reason should be "A vaga não é na localização pretendida."
 
     Job Description:
     {job_description}
