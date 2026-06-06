@@ -10,6 +10,12 @@ from scraper.manager import ScraperManager
 from matcher import match_job_with_cv
 from cover_letter import generate_cover_letter
 from utils import extract_text_from_pdf
+import unicodedata
+
+def normalize_text(text: str) -> str:
+    if not text:
+        return ""
+    return unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('utf-8').lower()
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -128,17 +134,31 @@ async def job_scraper_task():
         existing_job = db.query(Job).filter(Job.link == job["link"]).first()
         if not existing_job:
             print(f"[DEBUG] Nova vaga encontrada: {job['title']} na plataforma {job['platform']}")
+            
+            # Filtro Primário
+            job_loc_norm = normalize_text(job['location'])
+            is_valid_loc = any(normalize_text(loc) in job_loc_norm for loc in locations)
+            
+            initial_status = "Não fiz"
+            if not is_valid_loc:
+                print(f"[DEBUG] Rejeitada no Filtro Primário (Local: {job['location']}).")
+                initial_status = "Lixo"
+                
             new_job = Job(
                 title=job["title"],
                 company=job["company"],
                 location=job["location"],
                 link=job["link"],
                 platform=job["platform"],
-                description=job["description"]
+                description=job["description"],
+                status=initial_status
             )
             db.add(new_job)
             db.commit()
             db.refresh(new_job)
+            
+            if initial_status == "Lixo":
+                continue # Salta a avaliação da IA
             
             for user in valid_users:
                 print(f"[DEBUG] A calcular Match de {user.discord_id} com a vaga '{new_job.title}'...")
@@ -147,6 +167,14 @@ async def job_scraper_task():
                 
                 new_job.match_score = match_info["score"]
                 new_job.match_reason = match_info["reason"]
+                
+                if match_info["score"] == 0:
+                    new_job.status = "Lixo" # Esconde do portal se for em inglês ou local errado
+                    db.commit()
+                    print("[DEBUG] A aguardar 16 segundos para respeitar limites da API...")
+                    await asyncio.sleep(16)
+                    continue
+                    
                 db.commit()
                 
                 if match_info["score"] > 50:
@@ -165,6 +193,9 @@ async def job_scraper_task():
                         print(f"[DEBUG] Erro ao enviar DM para {user.discord_id}: {e}")
                 else:
                     print(f"[DEBUG] Match muito baixo ({match_info['score']}%). Não será enviada DM.")
+                
+                print("[DEBUG] A aguardar 16 segundos para respeitar limites da API...")
+                await asyncio.sleep(16)
         else:
             pass # Vaga já existia no sistema
             
