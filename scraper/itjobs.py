@@ -12,7 +12,7 @@ class ITJobsScraper:
                         if response.status == 200:
                             html = await response.read()
                             soup = BeautifulSoup(html, 'html.parser')
-                            for item in soup.select('.job-item')[:5]: # placeholder class
+                            for item in soup.select('.job-item')[:20]: # placeholder class
                                 title_el = item.select_one('.title')
                                 if title_el:
                                     title = title_el.text.strip()

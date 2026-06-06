@@ -13,7 +13,7 @@ class NetEmpregosScraper:
                         if response.status == 200:
                             html = await response.read()
                             soup = BeautifulSoup(html, 'html.parser')
-                            for item in soup.select('.job-item')[:5]:
+                            for item in soup.select('.job-item')[:20]:
                                 title_el = item.select_one('h2 a')
                                 if title_el:
                                     title = title_el.text.strip()

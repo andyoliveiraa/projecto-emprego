@@ -15,7 +15,7 @@ class SapoScraper:
                             html = await response.read()
                             soup = BeautifulSoup(html, 'html.parser')
                             # Mock seletores
-                            for item in soup.select('.job-offer-card')[:5]:
+                            for item in soup.select('.job-offer-card')[:20]:
                                 title_el = item.select_one('.job-offer-title a')
                                 if title_el:
                                     title = title_el.text.strip()

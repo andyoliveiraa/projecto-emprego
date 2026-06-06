@@ -24,7 +24,11 @@ async def read_jobs(request: Request, db: Session = Depends(get_db)):
         "rejected": sum(1 for j in jobs if j.status == "Não quero")
     }
     
-    return templates.TemplateResponse("index.html", {"request": request, "jobs": jobs, "metrics": metrics})
+    return templates.TemplateResponse(
+        request=request, 
+        name="index.html", 
+        context={"request": request, "jobs": jobs, "metrics": metrics}
+    )
 
 @app.post("/update_status/{job_id}")
 async def update_status(job_id: int, status: str = Form(...), db: Session = Depends(get_db)):
@@ -42,7 +46,11 @@ async def get_settings(request: Request, db: Session = Depends(get_db)):
         db.add(config)
         db.commit()
         db.refresh(config)
-    return templates.TemplateResponse("settings.html", {"request": request, "config": config})
+    return templates.TemplateResponse(
+        request=request, 
+        name="settings.html", 
+        context={"request": request, "config": config}
+    )
 
 @app.post("/settings")
 async def save_settings(
