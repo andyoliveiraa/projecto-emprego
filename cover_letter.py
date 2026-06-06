@@ -20,7 +20,7 @@ def generate_cover_letter(cv_text: str, company_name: str) -> str:
     try:
         client = genai.Client(api_key=api_key) if api_key else genai.Client()
         response = client.models.generate_content(
-            model='gemini-2.5-pro',
+            model='gemini-2.5-flash',
             contents=prompt,
         )
         return response.text.strip()
