@@ -27,5 +27,7 @@ def generate_cover_letter(cv_text: str, company_name: str) -> str:
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "Quota exceeded" in str(e):
+            return "⚠️ Atingiste o limite máximo do modelo Topo de Gama (5 pedidos por minuto). Por favor, aguarda 1 minuto e volta a clicar no botão."
         print(f"Error generating cover letter: {e}")
-        return "Desculpa, ocorreu um erro ao gerar a carta de motivação."
+        return "Erro ao gerar carta de motivação."

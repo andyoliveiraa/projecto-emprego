@@ -75,27 +75,32 @@ def adapt_cv_anti_ai(cv_text: str, job_title: str, job_description: str) -> str:
     Return ONLY the adapted CV text.
     """
     
-    model = genai.GenerativeModel('gemini-2.5-flash')
-    response = model.generate_content(draft_prompt)
-    draft_cv = response.text.strip()
-    
-    # 2. Detetor Anti-IA e Refinamento
-    detector_prompt = f"""
-    You are an extremely strict AI-detector tool designed to catch AI-generated text.
-    Review this resume draft. If it sounds like AI (e.g. uses predictable sentence structures, perfect but soulless formatting, cliché buzzwords like 'proativo', 'histórico comprovado', 'sinergia', 'apaixonado'), you MUST rewrite it to sound 100% like a real, imperfect human professional wrote it.
-    
-    Rules for the final human version:
-    - Write in Portuguese.
-    - Keep sentences concise and punchy.
-    - Use active voice and specific numbers/metrics where possible.
-    - Remove ANY fluffy adjectives.
-    - It must look like a normal text resume.
-    
-    Draft CV:
-    {draft_cv}
-    
-    Return ONLY the final, human-proofed CV.
-    """
-    
-    final_response = model.generate_content(detector_prompt)
-    return final_response.text.strip()
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(draft_prompt)
+        draft_cv = response.text.strip()
+        
+        # 2. Detetor Anti-IA e Refinamento
+        detector_prompt = f"""
+        You are an extremely strict AI-detector tool designed to catch AI-generated text.
+        Review this resume draft. If it sounds like AI (e.g. uses predictable sentence structures, perfect but soulless formatting, cliché buzzwords like 'proativo', 'histórico comprovado', 'sinergia', 'apaixonado'), you MUST rewrite it to sound 100% like a real, imperfect human professional wrote it.
+        
+        Rules for the final human version:
+        - Write in Portuguese.
+        - Keep sentences concise and punchy.
+        - Use active voice and specific numbers/metrics where possible.
+        - Remove ANY fluffy adjectives.
+        - It must look like a normal text resume.
+        
+        Draft CV:
+        {draft_cv}
+        
+        Return ONLY the final, human-proofed CV.
+        """
+        
+        final_response = model.generate_content(detector_prompt)
+        return final_response.text.strip()
+    except Exception as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "Quota exceeded" in str(e):
+            return "⚠️ Atingiste o limite máximo do modelo Topo de Gama (5 pedidos por minuto). Por favor, aguarda 1 minuto e volta a clicar no botão."
+        return f"Erro ao gerar CV: {e}"
