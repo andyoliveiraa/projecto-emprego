@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Empregos Matcher Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151b2b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #a855f7; /* Purple */
+            --accent-hover: #9333ea;
+            --accent-light: rgba(168, 85, 247, 0.2);
+            --success: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
+        }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            background-image: radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.15) 0%, transparent 50%);
+            background-attachment: fixed;
+        }
+        h1 {
+            text-align: center;
+            background: -webkit-linear-gradient(45deg, #a855f7, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 3.5rem;
+            margin-bottom: 0.5rem;
+            animation: fadeIn 1s ease-in-out;
+            letter-spacing: -1px;
+        }
+        .subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Metrics Panel */
+        .metrics-panel {
+            max-width: 1200px;
+            margin: 0 auto 3rem auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .metric-card {
+            background: rgba(21, 27, 43, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        .metric-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, #a855f7, #ec4899);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.3);
+            border-color: rgba(168, 85, 247, 0.3);
+        }
+        .card:hover::before {
+            opacity: 1;
+        }
+        .title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.2s;
+            line-height: 1.3;
+        }
+        .title:hover {
+            color: var(--accent);
+        }
+        .details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .info-tag {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        .match-score {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            background-color: var(--accent-light);
+            color: #d8b4fe;
+            align-self: flex-start;
+        }
+        .reason {
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            flex-grow: 1;
+        }
+        .status-form {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: space-between;
+        }
+        .status-select {
+            background-color: rgba(0,0,0,0.2);
+            color: var(--text-primary);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 0.5rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .status-select:focus {
+            border-color: var(--accent);
+        }
+        .status-btn {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .status-btn:hover {
+            background-color: var(--accent-hover);
+        }
+        
+        .badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .badge-applied { background-color: rgba(34, 197, 94, 0.2); color: #4ade80; }
+        .badge-pending { background-color: rgba(234, 179, 8, 0.2); color: #facc15; }
+        .badge-rejected { background-color: rgba(239, 68, 68, 0.2); color: #f87171; }
+    </style>
+</head>
+<body>
+    <h1>Empregos Matcher</h1>
+    <div class="subtitle">O teu assistente de inteligência artificial para procurar emprego.</div>
+
+    <div class="metrics-panel">
+        <div class="metric-card">
+            <div class="metric-value">{{ metrics.total }}</div>
+            <div class="metric-label">Vagas Encontradas</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" style="color: #4ade80;">{{ metrics.applied }}</div>
+            <div class="metric-label">Candidaturas Feitas</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" style="color: #facc15;">{{ metrics.pending }}</div>
+            <div class="metric-label">Por Analisar</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value" style="color: #f87171;">{{ metrics.rejected }}</div>
+            <div class="metric-label">Rejeitadas</div>
+        </div>
+    </div>
+
+    <div class="container">
+        {% if jobs %}
+            {% for job in jobs %}
+            <div class="card">
+                {% if job.status == 'Já fiz' %}
+                    <span class="badge badge-applied">Já fiz</span>
+                {% elif job.status == 'Não quero' %}
+                    <span class="badge badge-rejected">Não quero</span>
+                {% else %}
+                    <span class="badge badge-pending">Pendente</span>
+                {% endif %}
+
+                <a href="{{ job.link }}" target="_blank" class="title">{{ job.title }}</a>
+                <div class="details">
+                    <div class="info-tag">🏢 {{ job.company }}</div>
+                    <div class="info-tag">📍 {{ job.location }}</div>
+                    <div class="info-tag">🌐 {{ job.platform }}</div>
+                </div>
+                
+                {% if job.match_score %}
+                <div class="match-score">Match: {{ job.match_score }}%</div>
+                {% endif %}
+                
+                {% if job.match_reason %}
+                <div class="reason">{{ job.match_reason }}</div>
+                {% endif %}
+
+                <form class="status-form" action="/update_status/{{ job.id }}" method="POST">
+                    <select name="status" class="status-select">
+                        <option value="Não fiz" {% if job.status == 'Não fiz' %}selected{% endif %}>Pendente (Não fiz)</option>
+                        <option value="Já fiz" {% if job.status == 'Já fiz' %}selected{% endif %}>Já fiz inscrição</option>
+                        <option value="Não quero" {% if job.status == 'Não quero' %}selected{% endif %}>Não quero</option>
+                    </select>
+                    <button type="submit" class="status-btn">Atualizar</button>
+                </form>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="text-align: center; color: var(--text-secondary); grid-column: 1/-1;">Não há vagas registadas ainda.</p>
+        {% endif %}
+    </div>
+</body>
+</html>
