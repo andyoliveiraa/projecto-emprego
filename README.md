@@ -1,114 +1,60 @@
-# 🚀 Empregos Matcher Pro
+# Empregos AI SaaS 🚀
 
-O **Empregos Matcher Pro** é uma plataforma avançada composta por um portal Web responsivo (FastAPI) e um Bot para o Discord. O seu objetivo principal é poupar tempo na procura de emprego, pesquisando automaticamente em várias plataformas (ex: SAPO Empregos, Net-Empregos, ITJobs) vagas nas zonas da Covilhã, Mirandela e formato Remoto.
+Uma Plataforma Web Multi-Utilizador baseada em Inteligência Artificial para procura inteligente de vagas de emprego. Construída em Python com **FastAPI** e potenciada pela IA **Google Gemini**.
 
-Com a integração do **Google Gemini (Inteligência Artificial)**, a plataforma compara o teu currículo (CV) com as exigências da vaga, atribuindo um "Match Score". Além disso, gera cartas de motivação altamente humanas e indetetáveis por filtros de IA, facilitando a tua candidatura!
+## 🌟 Funcionalidades Principais
 
----
-
-## ✨ Principais Funcionalidades
-
-### 🤖 Bot de Discord
-- **Pesquisa Automática:** Corre em background (a cada 1 hora) e notifica-te via DM se a vaga bater certo com o teu CV (> 50%).
-- **Comandos:**
-  - `!setcv` - Anexa um ficheiro PDF ao enviares este comando para guardares o teu CV na base de dados.
-  - `!carta <Nome da Empresa>` - Gera uma carta de motivação personalizada e natural pronta a enviar.
-
-### 🌐 Dashboard Web
-- **Design Premium:** Interface moderna em Dark Mode com destaques a roxo e micro-animações.
-- **Painel de Métricas:** Estatísticas em tempo real: *Vagas Encontradas*, *Candidaturas Feitas*, *Por Analisar*, *Rejeitadas*.
-- **Gestão de Estado:** Altera o estado de qualquer vaga com um clique para gerires as tuas candidaturas de forma eficiente.
+- **Plataforma Multi-Utilizador**: Registo e Autenticação de utilizadores.
+- **Painel Central Moderno**: Gestão de vagas ("Pendente", "Já fiz", "Não quero").
+- **Avaliador de Match com IA**: A Inteligência Artificial compara cada vaga com o teu PDF de Currículo (CV) e dá uma pontuação. Vagas sem afinidade ou fora da tua zona alvo vão diretamente para o lixo, não poluindo o teu painel.
+- **Motor "Anti-Detetor de IA"**: Um mecanismo inovador de duas camadas. O sistema adapta o teu CV à vaga e, a seguir, passa-o por um detetor rigoroso de IA interno. Se cheirar a "robô", ele reescreve até o tom ficar perfeitamente humano!
+- **Gerador de Cartas de Motivação**: Cria cartas personalizadas para a empresa com um clique.
+- **Notificações por Discord Webhook**: Avisos automáticos no teu servidor do Discord quando são encontradas "vagas imperdíveis" (Match > 50%).
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
-- **Python 3** (Linguagem Principal)
-- **FastAPI** + **Uvicorn** (Servidor Web)
-- **Discord.py** (Bot Discord)
-- **Google Generative AI** (Integração Gemini)
-- **SQLAlchemy** + **SQLite** (Base de Dados)
-- **BeautifulSoup4** (Web Scraping)
-- **Jinja2** (Motor de Templates HTML)
+
+- **Backend**: FastAPI, Uvicorn, SQLAlchemy (SQLite)
+- **Scraping**: Aiohttp, BeautifulSoup4, SerpApi (Google Jobs)
+- **Inteligência Artificial**: `google-genai` (Gemini 2.5 Flash)
+- **Autenticação**: `passlib`, `bcrypt`, `python-jose`
+- **UI/Frontend**: Jinja2 Templates, HTML5/CSS3 (Aesthetics Premium)
 
 ---
 
-## ⚙️ Instalação e Execução Local
+## ⚙️ Como Configurar e Executar (Deploy/Local)
 
-Segue os passos abaixo para correres o projeto no teu próprio computador:
-
-### 1. Clonar ou Aceder ao Projeto
-Se já tens os ficheiros locais, basta abrir o terminal na pasta. Caso contrário:
-```bash
-git clone <URL_DO_TEU_REPOSITORIO>
-cd projecto-emprego
-```
-
-### 2. Criar e Ativar Ambiente Virtual
-Para isolar as dependências do projeto:
-
-**No Windows (PowerShell/CMD):**
-```bash
-python -m venv venv
-.\venv\Scripts\activate
-```
-
-**No Linux/MacOS:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Instalar Dependências
-Garante que estás com o ambiente virtual ativado (aparece `(venv)` na linha de comandos) e executa:
+### 1. Instalar as Dependências
+Certifica-te que tens o Python instalado e corre:
 ```bash
 pip install -r requirements.txt
 ```
+*(Nota: Podes precisar de forçar a instalação do `passlib`, `bcrypt`, `python-jose` e `python-multipart`)*
 
-### 4. Configurar as Variáveis de Ambiente
-Abre o ficheiro `.env` que está na raiz do teu projeto e preenche com as tuas chaves secretas:
+### 2. Variáveis de Ambiente (`.env`)
+Cria um ficheiro `.env` na raiz do teu projeto com as seguintes chaves:
 ```env
-DISCORD_TOKEN=teu_token_do_discord_bot_aqui
-GEMINI_API_KEY=tua_chave_da_google_gemini_aqui
+DISCORD_TOKEN=se_ainda_usares_bot_antigo_senao_ignora
+GEMINI_API_KEY=tua_chave_google_gemini
+SERPAPI_KEY=tua_chave_serpapi_para_google_jobs
 ```
-> **Dica:** Consegues o `DISCORD_TOKEN` criando uma aplicação no [Discord Developer Portal](https://discord.com/developers/applications). A `GEMINI_API_KEY` adquire-se gratuitamente na consola do [Google AI Studio](https://aistudio.google.com/).
 
-### 5. Iniciar o Projeto
-O ficheiro `main.py` encarrega-se de abrir a interface Web numa porta independente e iniciar as rotinas do Discord Bot ao mesmo tempo:
+### 3. Iniciar a Plataforma
+Inicia o servidor principal. Ele vai lançar a Plataforma Web e ativar os Scrapers de Extração em segundo plano!
 ```bash
 python main.py
 ```
-*Após iniciar, o teu portal estará disponível no browser em:* `http://localhost:8080`
+Acede a `http://localhost:8000` no teu navegador para criar conta e entrar!
 
 ---
 
-## ☁️ Deploy no Discloud
+## 🧭 Como Usar o Portal
 
-Este projeto já está otimizado para a plataforma [Discloud](https://discloudbot.com/) (como um "Site", visto que engloba tanto a Web como o Bot, garantindo que as portas não dão conflito).
-
-**Como fazer upload:**
-1. Seleciona todos os ficheiros do teu projeto.
-2. **Remove da seleção as pastas** `venv/`, `__pycache__/` e a base de dados `jobs.db` para não sobrecarregar o upload.
-3. Comprime tudo num ficheiro `.zip`.
-4. Vai ao painel da Discloud, clica em "Adicionar App" e envia o ZIP. 
-5. O ficheiro `discloud.config` já lá está e dirá aos servidores como iniciar a máquina virtual.
-
-```ini
-# Configuração atual incluída no teu projeto (discloud.config)
-NAME=EmpregosMatcher
-TYPE=site
-MAIN=main.py
-RAM=512
-AUTORESTART=false
-VERSION=latest
-```
+1. **Regista-te**: Cria o teu utilizador no ecrã principal.
+2. **Vai a ⚙️ Perfil**: Define as tuas cidades de preferência (ex: *Covilhã,Mirandela,Remoto*), submete o teu Currículo em PDF e (opcionalmente) insere o teu link de Webhook do Discord.
+3. **Deixa Trabalhar**: A máquina irá varrer as plataformas Sapo, NetEmpregos, LinkedIn e Google Jobs.
+4. **Clica numa Vaga**: No painel, abre uma vaga e carrega no botão **"🤖 Adaptar CV (Anti-IA)"** para conseguires a candidatura perfeita aos olhos humanos!
 
 ---
-
-## 🚀 Próximos Passos & Expansão
-- Adicionar chaves do SerpApi no ficheiro `scraper/google_jobs.py` para ativar extrações do Google Empregos nativamente.
-- Refinar os seletores CSS do SAPO e Net-Empregos caso os websites atualizem a interface gráfica.
-
----
-
-## 📜 Licença
-Projeto desenvolvido para fins pessoais de monitorização inteligente e centralização de anúncios de emprego. Ideal para impulsionar a taxa de sucesso nas candidaturas de forma humana e produtiva.
+Desenvolvido com foco na experiência do utilizador e na máxima eficiência de RH.

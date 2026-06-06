@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Empregos AI SaaS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-color: #0b0f19; --card-bg: #151b2b; --text-primary: #f8fafc; --text-secondary: #94a3b8; --accent: #a855f7; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-primary); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: var(--card-bg); padding: 2.5rem; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border: 1px solid rgba(168, 85, 247, 0.2); }
+        h1 { text-align: center; margin-bottom: 2rem; background: -webkit-linear-gradient(45deg, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.875rem; }
+        input { width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white; outline: none; box-sizing: border-box; }
+        input:focus { border-color: var(--accent); }
+        button { width: 100%; padding: 0.75rem; border-radius: 8px; border: none; background: var(--accent); color: white; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #9333ea; }
+        .error { color: #ef4444; text-align: center; margin-bottom: 1rem; font-size: 0.875rem; }
+        .links { text-align: center; margin-top: 1.5rem; font-size: 0.875rem; }
+        .links a { color: var(--accent); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Empregos AI</h1>
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+        <form method="POST" action="/login">
+            <div class="form-group">
+                <label>Utilizador</label>
+                <input type="text" name="username" required>
+            </div>
+            <div class="form-group">
+                <label>Palavra-passe</label>
+                <input type="password" name="password" required>
+            </div>
+            <button type="submit">Entrar</button>
+        </form>
+        <div class="links">Não tens conta? <a href="/register">Regista-te</a></div>
+    </div>
+</body>
+</html>

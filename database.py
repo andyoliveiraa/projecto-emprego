@@ -1,11 +1,22 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Boolean, Float
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Boolean, Float, ForeignKey
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime
 
-DATABASE_URL = "sqlite:///./jobs.db"
+DATABASE_URL = "sqlite:///./jobs_saas.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password_hash = Column(String)
+    webhook_url = Column(String, nullable=True)
+    locations = Column(String, default="Covilhã,Mirandela,Remoto")
+    cv_text = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    matches = relationship("UserJobMatch", back_populates="user")
 
 class Job(Base):
     __tablename__ = "jobs"
@@ -16,24 +27,21 @@ class Job(Base):
     link = Column(String, unique=True, index=True)
     platform = Column(String)
     description = Column(Text, nullable=True)
+    discovered_at = Column(DateTime, default=datetime.utcnow)
+    matches = relationship("UserJobMatch", back_populates="job")
+
+class UserJobMatch(Base):
+    __tablename__ = "user_job_matches"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    job_id = Column(Integer, ForeignKey("jobs.id"))
     match_score = Column(Float, default=0.0)
     match_reason = Column(Text, nullable=True)
-    status = Column(String, default="Não fiz") # "Já fiz", "Não fiz", "Não quero"
-    discovered_at = Column(DateTime, default=datetime.utcnow)
+    status = Column(String, default="Não fiz") # "Não fiz", "Já fiz", "Não quero", "Lixo"
     notified = Column(Boolean, default=False)
-
-class UserProfile(Base):
-    __tablename__ = "user_profiles"
-    discord_id = Column(String, primary_key=True, index=True)
-    cv_text = Column(Text, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow)
-
-class AppConfig(Base):
-    __tablename__ = "app_config"
-    id = Column(Integer, primary_key=True, index=True, default=1)
-    locations = Column(String, default="Covilhã,Mirandela,Remoto")
-    discord_user_id = Column(String, nullable=True)
-    cv_text = Column(Text, nullable=True)
+    
+    user = relationship("User", back_populates="matches")
+    job = relationship("Job", back_populates="matches")
 
 def init_db():
     Base.metadata.create_all(bind=engine)

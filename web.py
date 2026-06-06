@@ -1,10 +1,14 @@
-from fastapi import FastAPI, Request, Depends, Form, UploadFile, File
+from fastapi import FastAPI, Request, Depends, Form, UploadFile, File, Cookie, Response, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-import uvicorn
 from sqlalchemy.orm import Session
-from database import get_db, Job, AppConfig, init_db
+from database import get_db, User, Job, UserJobMatch, init_db
+from auth import get_password_hash, verify_password, create_access_token, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from datetime import timedelta
+from jose import jwt, JWTError
 from utils import extract_text_from_pdf
+from matcher import match_job_with_cv, adapt_cv_anti_ai
+from cover_letter import generate_cover_letter
 import os
 import unicodedata
 
@@ -19,112 +23,160 @@ init_db()
 os.makedirs("templates", exist_ok=True)
 templates = Jinja2Templates(directory="templates")
 
-@app.get("/", response_class=HTMLResponse)
-async def read_jobs(request: Request, loc: str = None, db: Session = Depends(get_db)):
-    all_jobs = db.query(Job).all()
-    # Ordenar por Covilhã (com ou sem til) primeiro, depois por match_score
-    all_jobs.sort(key=lambda x: (1 if x.location and "covilha" in normalize_text(x.location) else 0, x.match_score or 0), reverse=True)
+# Dependency to get current user from cookie
+def get_current_user(request: Request, db: Session = Depends(get_db)):
+    token = request.cookies.get("access_token")
+    if not token:
+        return None
+    try:
+        if token.startswith("Bearer "):
+            token = token[7:]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+    except JWTError:
+        return None
+    user = db.query(User).filter(User.username == username).first()
+    return user
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/login")
+async def login(response: Response, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user or not verify_password(password, user.password_hash):
+        return templates.TemplateResponse("login.html", {"request": {}, "error": "Credenciais inválidas"})
     
-    metrics = {
-        "total": len(all_jobs),
-        "applied": sum(1 for j in all_jobs if j.status == "Já fiz"),
-        "pending": sum(1 for j in all_jobs if j.status == "Não fiz"),
-        "rejected": sum(1 for j in all_jobs if j.status == "Não quero")
-    }
-    
-    
-    # Mostrar apenas pendentes na home
-    jobs = [j for j in all_jobs if j.status == "Não fiz"]
-    if loc:
-        jobs = [j for j in jobs if j.location and normalize_text(loc) in normalize_text(j.location)]
-    jobs = jobs[:100]
-    
-    return templates.TemplateResponse(
-        request=request, 
-        name="index.html", 
-        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "pending", "current_loc": loc}
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
     )
+    response = RedirectResponse(url="/", status_code=303)
+    response.set_cookie(key="access_token", value=f"Bearer {access_token}", httponly=True)
+    return response
+
+@app.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    return templates.TemplateResponse("register.html", {"request": request})
+
+@app.post("/register")
+async def register(username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+    if db.query(User).filter(User.username == username).first():
+        return templates.TemplateResponse("register.html", {"request": {}, "error": "Utilizador já existe"})
+    
+    hashed_password = get_password_hash(password)
+    new_user = User(username=username, password_hash=hashed_password)
+    db.add(new_user)
+    db.commit()
+    return RedirectResponse(url="/login", status_code=303)
+
+@app.get("/logout")
+async def logout(response: Response):
+    response = RedirectResponse(url="/login", status_code=303)
+    response.delete_cookie("access_token")
+    return response
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard_pending(request: Request, loc: str = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user: return RedirectResponse(url="/login", status_code=303)
+    return render_dashboard(request, current_user, db, "Não fiz", "pending", loc)
 
 @app.get("/applied", response_class=HTMLResponse)
-async def read_applied_jobs(request: Request, loc: str = None, db: Session = Depends(get_db)):
-    all_jobs = db.query(Job).all()
-    all_jobs.sort(key=lambda x: (1 if x.location and "covilha" in normalize_text(x.location) else 0, x.match_score or 0), reverse=True)
-    metrics = {
-        "total": len(all_jobs), "applied": sum(1 for j in all_jobs if j.status == "Já fiz"),
-        "pending": sum(1 for j in all_jobs if j.status == "Não fiz"), "rejected": sum(1 for j in all_jobs if j.status == "Não quero")
-    }
-    jobs = [j for j in all_jobs if j.status == "Já fiz"]
-    if loc:
-        jobs = [j for j in jobs if j.location and normalize_text(loc) in normalize_text(j.location)]
-    jobs = jobs[:100]
-    return templates.TemplateResponse(
-        request=request, name="index.html", 
-        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "applied", "current_loc": loc}
-    )
+async def dashboard_applied(request: Request, loc: str = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user: return RedirectResponse(url="/login", status_code=303)
+    return render_dashboard(request, current_user, db, "Já fiz", "applied", loc)
 
 @app.get("/rejected", response_class=HTMLResponse)
-async def read_rejected_jobs(request: Request, loc: str = None, db: Session = Depends(get_db)):
-    all_jobs = db.query(Job).all()
-    all_jobs.sort(key=lambda x: (1 if x.location and "covilha" in normalize_text(x.location) else 0, x.match_score or 0), reverse=True)
+async def dashboard_rejected(request: Request, loc: str = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user: return RedirectResponse(url="/login", status_code=303)
+    return render_dashboard(request, current_user, db, "Não quero", "rejected", loc)
+
+def render_dashboard(request, current_user, db, target_status, current_page, loc):
+    all_matches = db.query(UserJobMatch).filter(UserJobMatch.user_id == current_user.id).all()
+    
     metrics = {
-        "total": len(all_jobs), "applied": sum(1 for j in all_jobs if j.status == "Já fiz"),
-        "pending": sum(1 for j in all_jobs if j.status == "Não fiz"), "rejected": sum(1 for j in all_jobs if j.status == "Não quero")
+        "total": len([m for m in all_matches if m.status != "Lixo"]),
+        "applied": sum(1 for m in all_matches if m.status == "Já fiz"),
+        "pending": sum(1 for m in all_matches if m.status == "Não fiz"),
+        "rejected": sum(1 for m in all_matches if m.status == "Não quero")
     }
-    jobs = [j for j in all_jobs if j.status == "Não quero"]
+    
+    matches = [m for m in all_matches if m.status == target_status]
     if loc:
-        jobs = [j for j in jobs if j.location and normalize_text(loc) in normalize_text(j.location)]
-    jobs = jobs[:100]
+        matches = [m for m in matches if m.job.location and normalize_text(loc) in normalize_text(m.job.location)]
+    
+    matches.sort(key=lambda x: (1 if x.job.location and "covilha" in normalize_text(x.job.location) else 0, x.match_score or 0), reverse=True)
+    matches = matches[:100]
+    
     return templates.TemplateResponse(
-        request=request, name="index.html", 
-        context={"request": request, "jobs": jobs, "metrics": metrics, "current_page": "rejected", "current_loc": loc}
+        "index.html", 
+        {"request": request, "user": current_user, "matches": matches, "metrics": metrics, "current_page": current_page, "current_loc": loc}
     )
 
-@app.post("/update_status/{job_id}")
-async def update_status(job_id: int, status: str = Form(...), return_to: str = Form("/"), db: Session = Depends(get_db)):
-    job = db.query(Job).filter(Job.id == job_id).first()
-    if job:
-        job.status = status
+@app.post("/update_status/{match_id}")
+async def update_status(match_id: int, status: str = Form(...), return_to: str = Form("/"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user: return RedirectResponse(url="/login", status_code=303)
+    match = db.query(UserJobMatch).filter(UserJobMatch.id == match_id, UserJobMatch.user_id == current_user.id).first()
+    if match:
+        match.status = status
         db.commit()
     return RedirectResponse(url=return_to, status_code=303)
 
 @app.get("/settings", response_class=HTMLResponse)
-async def get_settings(request: Request, db: Session = Depends(get_db)):
-    config = db.query(AppConfig).first()
-    if not config:
-        config = AppConfig()
-        db.add(config)
-        db.commit()
-        db.refresh(config)
-    return templates.TemplateResponse(
-        request=request, 
-        name="settings.html", 
-        context={"request": request, "config": config}
-    )
+async def settings_page(request: Request, current_user: User = Depends(get_current_user)):
+    if not current_user: return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("settings.html", {"request": request, "user": current_user})
 
 @app.post("/settings")
 async def save_settings(
     locations: str = Form("Covilhã,Mirandela,Remoto"),
-    discord_user_id: str = Form(""),
+    webhook_url: str = Form(""),
     cv_file: UploadFile = File(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    config = db.query(AppConfig).first()
-    if not config:
-        config = AppConfig()
-        db.add(config)
+    if not current_user: return RedirectResponse(url="/login", status_code=303)
     
-    config.locations = locations
-    config.discord_user_id = discord_user_id
+    current_user.locations = locations
+    current_user.webhook_url = webhook_url
     
     if cv_file and cv_file.filename:
         pdf_bytes = await cv_file.read()
         text = extract_text_from_pdf(pdf_bytes)
         if text:
-            config.cv_text = text
+            current_user.cv_text = text
             
     db.commit()
     return RedirectResponse(url="/settings", status_code=303)
 
-def run_web():
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+@app.get("/job/{job_id}", response_class=HTMLResponse)
+async def job_detail_page(request: Request, job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user: return RedirectResponse(url="/login", status_code=303)
+    match = db.query(UserJobMatch).filter(UserJobMatch.job_id == job_id, UserJobMatch.user_id == current_user.id).first()
+    if not match:
+        return RedirectResponse(url="/", status_code=303)
+    
+    return templates.TemplateResponse("job_detail.html", {"request": request, "user": current_user, "match": match})
+
+@app.post("/api/generate/carta/{job_id}")
+async def api_generate_carta(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user or not current_user.cv_text: 
+        raise HTTPException(status_code=400, detail="Sem CV configurado")
+    match = db.query(UserJobMatch).filter(UserJobMatch.job_id == job_id, UserJobMatch.user_id == current_user.id).first()
+    if not match: raise HTTPException(status_code=404)
+    
+    carta = generate_cover_letter(current_user.cv_text, match.job.company)
+    return {"result": carta}
+
+@app.post("/api/generate/cv/{job_id}")
+async def api_generate_cv(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not current_user or not current_user.cv_text: 
+        raise HTTPException(status_code=400, detail="Sem CV configurado")
+    match = db.query(UserJobMatch).filter(UserJobMatch.job_id == job_id, UserJobMatch.user_id == current_user.id).first()
+    if not match: raise HTTPException(status_code=404)
+    
+    cv = adapt_cv_anti_ai(current_user.cv_text, match.job.title, match.job.description)
+    return {"result": cv}
