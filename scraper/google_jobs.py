@@ -27,7 +27,26 @@ class GoogleJobsScraper:
         try:
             async with aiohttp.ClientSession() as session:
                 for loc in locations:
-                    url = f"https://serpapi.com/search.json?engine=google_jobs&q=vagas+de+emprego+{urllib.parse.quote(loc)}&hl=pt&gl=pt&api_key={api_key}"
+                    query_params = f"engine=google_jobs&q=Empregos&hl=pt&gl=pt&api_key={api_key}"
+                    
+                    # Passo 1: Converter a cidade (ex: Covilhã) para o Formato Canonical do Google (Locations API)
+                    loc_url = f"https://serpapi.com/locations.json?q={urllib.parse.quote(loc)}&limit=1"
+                    try:
+                        async with session.get(loc_url) as loc_resp:
+                            if loc_resp.status == 200:
+                                loc_data = await loc_resp.json()
+                                if isinstance(loc_data, list) and len(loc_data) > 0:
+                                    canonical_name = loc_data[0].get("canonical_name", "")
+                                    if canonical_name:
+                                        query_params += f"&location={urllib.parse.quote(canonical_name)}"
+                                else:
+                                    # Se a localização não existir na DB da Google (ex: Remoto), procuramos pelo texto
+                                    query_params = f"engine=google_jobs&q=Empregos+{urllib.parse.quote(loc)}&hl=pt&gl=pt&api_key={api_key}"
+                    except Exception:
+                        query_params = f"engine=google_jobs&q=Empregos+{urllib.parse.quote(loc)}&hl=pt&gl=pt&api_key={api_key}"
+
+                    # Passo 2: Fazer a pesquisa com a localização correta e infalível
+                    url = f"https://serpapi.com/search.json?{query_params}"
                     async with session.get(url) as response:
                         if response.status == 200:
                             data = await response.json()
