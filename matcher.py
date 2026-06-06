@@ -15,6 +15,8 @@ def match_job_with_cv(job_description: str, cv_text: str) -> dict:
     I will provide you with a Job Description and a Candidate's CV.
     Your task is to analyze how well the CV matches the Job Description.
 
+    CRITICAL RULE: If the Job Description is written in English or any language other than Portuguese, you MUST return a score of 0, and the reason should be "A vaga não está escrita em Português."
+
     Job Description:
     {job_description}
 
