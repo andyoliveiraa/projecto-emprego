@@ -4,7 +4,7 @@ from discord.ext import commands, tasks
 from dotenv import load_dotenv
 import asyncio
 
-from database import SessionLocal, Job, UserProfile, init_db
+from database import SessionLocal, Job, UserProfile, AppConfig, init_db
 from scraper.manager import ScraperManager
 from matcher import match_job_with_cv
 from cover_letter import generate_cover_letter
@@ -83,10 +83,27 @@ async def carta_motivacao(ctx, *, empresa: str = None):
 @tasks.loop(hours=1)
 async def job_scraper_task():
     print("A iniciar pesquisa de vagas...")
-    jobs = await scraper_manager.run_all()
-    
     db = SessionLocal()
+    
+    config = db.query(AppConfig).first()
+    locations = ["Covilhã", "Mirandela", "Remoto"]
+    if config and config.locations:
+        locations = [l.strip() for l in config.locations.split(',')]
+        
+    jobs = await scraper_manager.run_all(locations)
     users = db.query(UserProfile).all()
+    
+    # Criar um user virtual se o CV estiver na AppConfig
+    if config and config.cv_text and config.discord_user_id:
+        # Evitar duplicados se o utilizador já usou !setcv
+        if not any(u.discord_id == config.discord_user_id for u in users):
+            virtual_user = UserProfile(discord_id=config.discord_user_id, cv_text=config.cv_text)
+            users.append(virtual_user)
+        else:
+            # Substituir o CV do discord se houver um na AppConfig? Fica à escolha, vamos atualizar o text.
+            for u in users:
+                if u.discord_id == config.discord_user_id:
+                    u.cv_text = config.cv_text
     
     for job in jobs:
         existing_job = db.query(Job).filter(Job.link == job["link"]).first()

@@ -28,6 +28,13 @@ class UserProfile(Base):
     cv_text = Column(Text, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
+class AppConfig(Base):
+    __tablename__ = "app_config"
+    id = Column(Integer, primary_key=True, index=True, default=1)
+    locations = Column(String, default="Covilhã,Mirandela,Remoto")
+    discord_user_id = Column(String, nullable=True)
+    cv_text = Column(Text, nullable=True)
+
 def init_db():
     Base.metadata.create_all(bind=engine)
 

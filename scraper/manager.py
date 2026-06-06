@@ -13,10 +13,9 @@ class ScraperManager:
             ITJobsScraper(),
             GoogleJobsScraper()
         ]
-        self.locations = ["Covilhã", "Mirandela", "Remoto", "Remote"]
 
-    async def run_all(self):
-        tasks = [scraper.scrape(self.locations) for scraper in self.scrapers]
+    async def run_all(self, locations: list[str]):
+        tasks = [scraper.scrape(locations) for scraper in self.scrapers]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         all_jobs = []

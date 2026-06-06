@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações - Empregos Matcher Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151b2b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #a855f7;
+            --accent-hover: #9333ea;
+        }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            background-image: radial-gradient(circle at 50% 0%, rgba(168, 85, 247, 0.15) 0%, transparent 50%);
+            background-attachment: fixed;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .header a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .header a:hover {
+            color: var(--accent);
+        }
+        h1 {
+            background: -webkit-linear-gradient(45deg, #a855f7, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5rem;
+            margin: 0;
+        }
+        .card {
+            background: rgba(21, 27, 43, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 2.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        input[type="file"] {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            box-sizing: border-box;
+        }
+        .hint {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+            display: block;
+        }
+        .submit-btn {
+            background: linear-gradient(45deg, #a855f7, #ec4899);
+            color: white;
+            border: none;
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            width: 100%;
+            margin-top: 1rem;
+        }
+        .submit-btn:hover {
+            opacity: 0.9;
+        }
+        .cv-status {
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            background: rgba(34, 197, 94, 0.1);
+            border-left: 4px solid #22c55e;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            color: #4ade80;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Configurações</h1>
+            <a href="/">← Voltar ao Dashboard</a>
+        </div>
+        
+        <div class="card">
+            <form action="/settings" method="POST" enctype="multipart/form-data">
+                
+                <div class="form-group">
+                    <label for="locations">Localizações (Cidades ou Regiões)</label>
+                    <input type="text" id="locations" name="locations" value="{{ config.locations if config else 'Covilhã,Mirandela,Remoto' }}" required>
+                    <span class="hint">Separadas por vírgula. Ex: Lisboa,Porto,Remoto</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="discord_user_id">ID de Utilizador do Discord</label>
+                    <input type="text" id="discord_user_id" name="discord_user_id" value="{{ config.discord_user_id if config and config.discord_user_id else '' }}">
+                    <span class="hint">Para receberes DMs do bot. Ativa o "Developer Mode" no Discord, clica no teu perfil e faz "Copy User ID". (Numérico)</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="cv_file">Submeter Novo Currículo (PDF)</label>
+                    <input type="file" id="cv_file" name="cv_file" accept=".pdf">
+                    <span class="hint">Opcional se já enviaste no Discord através do comando !setcv. Deixa vazio para manter o atual.</span>
+                    {% if config and config.cv_text %}
+                        <div class="cv-status">✓ O teu currículo está guardado e ativo no sistema.</div>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="submit-btn">Guardar Alterações</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
