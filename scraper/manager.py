@@ -5,13 +5,15 @@ from .netempregos import NetEmpregosScraper
 from .itjobs import ITJobsScraper
 from .google_jobs import GoogleJobsScraper
 from .linkedin import LinkedInScraper
+from .indeed import IndeedScraper
 
 class ScraperManager:
     def __init__(self):
         self.scrapers = [
             NetEmpregosScraper(),
             LinkedInScraper(),
-            GoogleJobsScraper()
+            GoogleJobsScraper(),
+            IndeedScraper()
             # SapoScraper(), # Desativado devido a proteções anti-bot pesadas
             # ITJobsScraper() # Desativado devido a proteções anti-bot pesadas
         ]
