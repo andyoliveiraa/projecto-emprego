@@ -11,7 +11,7 @@ class NetEmpregosScraper:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}) as response:
                         if response.status == 200:
-                            html = await response.text()
+                            html = await response.read()
                             soup = BeautifulSoup(html, 'html.parser')
                             for item in soup.select('.job-item')[:5]:
                                 title_el = item.select_one('h2 a')

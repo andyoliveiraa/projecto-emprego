@@ -12,7 +12,7 @@ class SapoScraper:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}) as response:
                         if response.status == 200:
-                            html = await response.text()
+                            html = await response.read()
                             soup = BeautifulSoup(html, 'html.parser')
                             # Mock seletores
                             for item in soup.select('.job-offer-card')[:5]:
