@@ -1,10 +1,13 @@
 import os
-from google import genai
+import google.generativeai as genai
 from dotenv import load_dotenv
 import json
 
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
+
+if api_key:
+    genai.configure(api_key=api_key)
 
 def match_job_with_cv(job_title: str, job_description: str, job_location: str, target_locations: list[str], cv_text: str) -> dict:
     if not cv_text or not job_description:
@@ -35,11 +38,8 @@ def match_job_with_cv(job_title: str, job_description: str, job_location: str, t
     """
     
     try:
-        client = genai.Client(api_key=api_key) if api_key else genai.Client()
-        response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=prompt,
-        )
+        model = genai.GenerativeModel('gemini-1.5-flash-8b') # O modelo super rápido sem rebentar a API
+        response = model.generate_content(prompt)
         text = response.text.strip()
         if text.startswith("```json"):
             text = text[7:-3].strip()
@@ -57,7 +57,7 @@ def match_job_with_cv(job_title: str, job_description: str, job_location: str, t
 
 def adapt_cv_anti_ai(cv_text: str, job_title: str, job_description: str) -> str:
     """ Adapta o currículo e passa-o por um detetor de IA interno para garantir humanidade. """
-    client = genai.Client(api_key=api_key) if api_key else genai.Client()
+
     
     # 1. Primeira passagem: Adaptar o CV
     draft_prompt = f"""
@@ -73,7 +73,8 @@ def adapt_cv_anti_ai(cv_text: str, job_title: str, job_description: str) -> str:
     Return ONLY the adapted CV text.
     """
     
-    response = client.models.generate_content(model='gemini-2.5-flash', contents=draft_prompt)
+    model = genai.GenerativeModel('gemini-2.5-flash')
+    response = model.generate_content(draft_prompt)
     draft_cv = response.text.strip()
     
     # 2. Detetor Anti-IA e Refinamento
@@ -94,5 +95,5 @@ def adapt_cv_anti_ai(cv_text: str, job_title: str, job_description: str) -> str:
     Return ONLY the final, human-proofed CV.
     """
     
-    final_response = client.models.generate_content(model='gemini-2.5-flash', contents=detector_prompt)
+    final_response = model.generate_content(detector_prompt)
     return final_response.text.strip()
