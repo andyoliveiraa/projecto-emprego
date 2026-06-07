@@ -35,7 +35,7 @@ def filter_job_without_cv(job_title: str, job_description: str, job_location: st
     
     try:
         import re
-        text = generate_with_fallback(prompt, premium=False, is_json=True)
+        text = generate_with_fallback(prompt, premium=False, is_json=True, provider="nvidia")
         
         # Limpar markdown
         if text.startswith("```json"):

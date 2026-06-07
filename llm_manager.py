@@ -73,16 +73,38 @@ def call_claude(prompt: str, premium: bool) -> str:
     )
     return message.content[0].text.strip()
 
-def generate_with_fallback(prompt: str, premium: bool = False, is_json: bool = False) -> str:
+def generate_with_fallback(prompt: str, premium: bool = False, is_json: bool = False, provider: str = "gemini") -> str:
     """
     Tenta gerar conteúdo passando pelos 3 modelos.
-    A ordem é: Gemini (Principal) -> Nvidia (Secundário) -> Claude (Terceário)
+    Se provider="nvidia", tenta Nvidia -> Gemini -> Claude
     """
     
     errors = []
     
-    # 1. Tentar Gemini
-    try:
+    if provider == "nvidia":
+        try:
+            print("[LLM Manager] A tentar Nvidia (Primário)...")
+            result = call_nvidia(prompt, premium)
+            if result: return result
+        except Exception as e:
+            errors.append(f"Nvidia Error: {e}")
+            print(f"[LLM Manager] Nvidia falhou. {e}")
+            
+        try:
+            result = call_gemini(prompt, premium)
+            if result: return result
+        except Exception as e:
+            errors.append(f"Gemini Error: {e}")
+            
+        try:
+            result = call_claude(prompt, premium)
+            if result: return result
+        except Exception as e:
+            errors.append(f"Claude Error: {e}")
+            
+    else:
+        # 1. Tentar Gemini
+        try:
         # print("[LLM Manager] A tentar Gemini...") # Reduzir spam na consola
         result = call_gemini(prompt, premium)
         if result:
