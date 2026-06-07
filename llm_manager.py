@@ -105,42 +105,42 @@ def generate_with_fallback(prompt: str, premium: bool = False, is_json: bool = F
     else:
         # 1. Tentar Gemini
         try:
-        # print("[LLM Manager] A tentar Gemini...") # Reduzir spam na consola
-        result = call_gemini(prompt, premium)
-        if result:
-            return result
-    except Exception as e:
-        error_msg = str(e)
-        short_error = error_msg.split('\\n')[0] if '\\n' in error_msg else error_msg
-        errors.append(f"Gemini Error: {short_error}")
-        
-        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "Quota exceeded" in error_msg:
-            print(f"[LLM Manager] Gemini atingiu o limite (429). A ativar fallback automático...")
-        else:
-            print(f"[LLM Manager] Gemini falhou. {short_error}")
+            # print("[LLM Manager] A tentar Gemini...") # Reduzir spam na consola
+            result = call_gemini(prompt, premium)
+            if result:
+                return result
+        except Exception as e:
+            error_msg = str(e)
+            short_error = error_msg.split('\n')[0] if '\n' in error_msg else error_msg
+            errors.append(f"Gemini Error: {short_error}")
             
-    # 2. Tentar Nvidia (Llama)
-    try:
-        print("[LLM Manager] A tentar Nvidia (Fallback 1)...")
-        result = call_nvidia(prompt, premium)
-        if result:
-            return result
-    except Exception as e:
-        errors.append(f"Nvidia Error: {e}")
-        print(f"[LLM Manager] Nvidia falhou. {e}")
+            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "Quota exceeded" in error_msg:
+                print(f"[LLM Manager] Gemini atingiu o limite (429). A ativar fallback automático...")
+            else:
+                print(f"[LLM Manager] Gemini falhou. {short_error}")
+                
+        # 2. Tentar Nvidia (Llama)
+        try:
+            print("[LLM Manager] A tentar Nvidia (Fallback 1)...")
+            result = call_nvidia(prompt, premium)
+            if result:
+                return result
+        except Exception as e:
+            errors.append(f"Nvidia Error: {e}")
+            print(f"[LLM Manager] Nvidia falhou. {e}")
 
-    # 3. Tentar Claude
-    try:
-        print("[LLM Manager] A tentar Claude (Fallback 2)...")
-        result = call_claude(prompt, premium)
-        if result:
-            return result
-    except Exception as e:
-        errors.append(f"Claude Error: {e}")
-        print(f"[LLM Manager] Claude falhou. {e}")
-        
-    # Se falharam todos
-    if is_json:
-        return '{"score": 0, "reason": "Erro Crítico: Todas as IAs (Gemini, Nvidia, Claude) falharam."}'
-    else:
-        return f"Erro Crítico ao gerar conteúdo. Todas as IAs falharam. Logs: {' | '.join(errors)}"
+        # 3. Tentar Claude
+        try:
+            print("[LLM Manager] A tentar Claude (Fallback 2)...")
+            result = call_claude(prompt, premium)
+            if result:
+                return result
+        except Exception as e:
+            errors.append(f"Claude Error: {e}")
+            print(f"[LLM Manager] Claude falhou. {e}")
+            
+        # Se falharam todos
+        if is_json:
+            return '{"is_valid": false, "reason": "Erro Crítico: Todas as IAs falharam."}'
+        else:
+            return f"Erro Crítico ao gerar conteúdo. Todas as IAs falharam. Logs: {' | '.join(errors)}"
