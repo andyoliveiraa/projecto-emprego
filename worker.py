@@ -77,7 +77,17 @@ async def run_scraper_cycle():
                 
             user_locs = [l.strip() for l in user.locations.split(',')] if user.locations else []
             
-            print(f"[Worker] IA a validar vaga '{job.title}'...")
+            job_text_norm = normalize_text(job.title + " " + job.location + " " + (job.description or ""))
+            is_valid_loc = any(normalize_text(loc) in job_text_norm for loc in user_locs)
+            
+            if not is_valid_loc:
+                # Falha no filtro rápido, poupa tempo de IA e vai direto para o lixo
+                match = UserJobMatch(user_id=user.id, job_id=job.id, status="Lixo", match_score=0.0, match_reason="Fora da tua zona geográfica (Filtro Rápido).")
+                db.add(match)
+                db.commit()
+                continue
+            
+            print(f"[Worker] Filtro rápido passou. IA a validar vaga '{job.title}'...")
             match_info = filter_job_without_cv(job.title, job.description, job.location, user_locs)
             
             status = "Não fiz" if match_info["is_valid"] else "Lixo"
@@ -160,6 +170,16 @@ async def run_scraper_for_user_stream(user_id: int):
             
         analisadas += 1
         
+        job_text_norm = normalize_text(job.title + " " + job.location + " " + (job.description or ""))
+        is_valid_loc = any(normalize_text(loc) in job_text_norm for loc in locations)
+        
+        if not is_valid_loc:
+            # Filtro rápido chumba, não vai à IA
+            match = UserJobMatch(user_id=user.id, job_id=job.id, status="Lixo", match_score=0.0, match_reason="Fora da tua zona geográfica (Filtro Rápido).")
+            db.add(match)
+            db.commit()
+            continue
+            
         try:
             match_info = filter_job_without_cv(job.title, job.description, job.location, locations)
             
