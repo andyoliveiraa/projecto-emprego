@@ -7,7 +7,7 @@ from auth import get_password_hash, verify_password, create_access_token, SECRET
 from datetime import timedelta
 from jose import jwt, JWTError
 from utils import extract_text_from_pdf
-from matcher import match_job_with_cv, adapt_cv_anti_ai
+from matcher import adapt_cv_anti_ai
 from cover_letter import generate_cover_letter
 import os
 import unicodedata
