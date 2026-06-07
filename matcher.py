@@ -35,11 +35,19 @@ def match_job_with_cv(job_title: str, job_description: str, job_location: str, t
     """
     
     try:
+        import re
         text = generate_with_fallback(prompt, premium=False, is_json=True)
+        
+        # Limpar markdown
         if text.startswith("```json"):
             text = text[7:-3].strip()
         elif text.startswith("```"):
             text = text[3:-3].strip()
+            
+        # Tentar extrair apenas o objeto JSON caso o modelo tenha retornado texto adicional
+        match = re.search(r'\\{.*?\\}', text, re.DOTALL)
+        if match:
+            text = match.group(0)
             
         result = json.loads(text)
         return {

@@ -83,19 +83,19 @@ def generate_with_fallback(prompt: str, premium: bool = False, is_json: bool = F
     
     # 1. Tentar Gemini
     try:
-        print("[LLM Manager] A tentar Gemini...")
+        # print("[LLM Manager] A tentar Gemini...") # Reduzir spam na consola
         result = call_gemini(prompt, premium)
         if result:
             return result
     except Exception as e:
         error_msg = str(e)
-        errors.append(f"Gemini Error: {error_msg}")
-        print(f"[LLM Manager] Gemini falhou. {error_msg}")
+        short_error = error_msg.split('\\n')[0] if '\\n' in error_msg else error_msg
+        errors.append(f"Gemini Error: {short_error}")
         
-        # Lidar com limitação de Quota no Gemini para premium (para manter compatibilidade com UI)
-        if premium and ("429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "Quota exceeded" in error_msg):
-            # Vamos cair para o Nvidia silenciosamente em vez de estoirar
-            pass
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "Quota exceeded" in error_msg:
+            print(f"[LLM Manager] Gemini atingiu o limite (429). A ativar fallback automático...")
+        else:
+            print(f"[LLM Manager] Gemini falhou. {short_error}")
             
     # 2. Tentar Nvidia (Llama)
     try:
