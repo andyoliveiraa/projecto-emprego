@@ -1,14 +1,4 @@
-import os
-import warnings
-warnings.filterwarnings("ignore", category=FutureWarning)
-import google.generativeai as genai
-from dotenv import load_dotenv
-
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
-
-if api_key:
-    genai.configure(api_key=api_key)
+from llm_manager import generate_with_fallback
 
 def generate_cover_letter(cv_text: str, company_name: str) -> str:
     prompt = f"""
@@ -23,11 +13,8 @@ def generate_cover_letter(cv_text: str, company_name: str) -> str:
     """
     
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(prompt)
-        return response.text.strip()
+        text = generate_with_fallback(prompt, premium=True, is_json=False)
+        return text
     except Exception as e:
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "Quota exceeded" in str(e):
-            return "⚠️ Atingiste o limite máximo do modelo Topo de Gama (5 pedidos por minuto). Por favor, aguarda 1 minuto e volta a clicar no botão."
         print(f"Error generating cover letter: {e}")
         return "Erro ao gerar carta de motivação."

@@ -4,12 +4,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 import google.generativeai as genai
 from dotenv import load_dotenv
 import json
-
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
-
-if api_key:
-    genai.configure(api_key=api_key)
+from llm_manager import generate_with_fallback
 
 def match_job_with_cv(job_title: str, job_description: str, job_location: str, target_locations: list[str], cv_text: str) -> dict:
     if not cv_text or not job_description:
@@ -40,9 +35,7 @@ def match_job_with_cv(job_title: str, job_description: str, job_location: str, t
     """
     
     try:
-        model = genai.GenerativeModel('gemini-2.0-flash-lite') # Modelo flash standard, suportado em todos os projetos
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+        text = generate_with_fallback(prompt, premium=False, is_json=True)
         if text.startswith("```json"):
             text = text[7:-3].strip()
         elif text.startswith("```"):
@@ -74,11 +67,8 @@ def adapt_cv_anti_ai(cv_text: str, job_title: str, job_description: str) -> str:
     
     Return ONLY the adapted CV text.
     """
-    
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(draft_prompt)
-        draft_cv = response.text.strip()
+        draft_cv = generate_with_fallback(draft_prompt, premium=True, is_json=False)
         
         # 2. Detetor Anti-IA e Refinamento
         detector_prompt = f"""
@@ -98,9 +88,7 @@ def adapt_cv_anti_ai(cv_text: str, job_title: str, job_description: str) -> str:
         Return ONLY the final, human-proofed CV.
         """
         
-        final_response = model.generate_content(detector_prompt)
-        return final_response.text.strip()
+        text = generate_with_fallback(detector_prompt, premium=True, is_json=False)
+        return text
     except Exception as e:
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "Quota exceeded" in str(e):
-            return "⚠️ Atingiste o limite máximo do modelo Topo de Gama (5 pedidos por minuto). Por favor, aguarda 1 minuto e volta a clicar no botão."
         return f"Erro ao gerar CV: {e}"
