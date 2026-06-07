@@ -10,12 +10,16 @@ class GoogleJobsScraper:
         try:
             from jobspy import scrape_jobs
             # Configura para procurar no Google, Indeed, LinkedIn e Glassdoor em simultâneo
+            is_remote = loc.lower() in ["remoto", "teletrabalho"]
+            query_loc = "Portugal" if is_remote else f"{loc}, Portugal"
+            
             jobs_df = scrape_jobs(
                 site_name=["google", "indeed", "linkedin"],
                 search_term="Empregos",
-                location=f"{loc}, Portugal",
+                location=query_loc,
                 results_wanted=30, # Vagas por plataforma
-                country_indeed="portugal"
+                country_indeed="portugal",
+                is_remote=is_remote
             )
             
             jobs_list = []

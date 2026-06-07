@@ -46,13 +46,16 @@ async def run_scraper_cycle():
                 all_locations.add(loc.strip())
                 
     if not all_locations:
-        all_locations = {"Covilhã", "Remoto", "Teletrabalho"}
+        all_locations = {"Covilhã", "Covilha", "Mirandela", "Remoto", "Teletrabalho"}
         
     print(f"[Worker] Procurando nas localizações combinadas: {all_locations}")
     jobs_data = await scraper_manager.run_all(list(all_locations))
     
     for job_data in jobs_data:
-        job = db.query(Job).filter(Job.link == job_data["link"]).first()
+        job = db.query(Job).filter(
+            (Job.link == job_data["link"]) | 
+            ((Job.title == job_data["title"]) & (Job.company == job_data["company"]))
+        ).first()
         if not job:
             job = Job(
                 title=job_data["title"],
@@ -73,14 +76,7 @@ async def run_scraper_cycle():
                 
             user_locs = [l.strip() for l in user.locations.split(',')] if user.locations else []
             
-            job_text_norm = normalize_text(job.title + " " + job.location + " " + (job.description or ""))
-            is_valid_loc = any(normalize_text(loc) in job_text_norm for loc in user_locs)
-            
-            if not is_valid_loc:
-                match = UserJobMatch(user_id=user.id, job_id=job.id, status="Lixo")
-                db.add(match)
-                db.commit()
-                continue
+            # Filtro local desativado a pedido do utilizador - todas as vagas entram diretamente
                 
             status = "Não fiz"
                 
@@ -118,7 +114,7 @@ async def run_scraper_for_user_stream(user_id: int):
 
     yield await log_and_yield(db, user.id, f"A iniciar busca forçada para {user.username}...")
     
-    locations = [l.strip() for l in user.locations.split(',')] if user.locations else ["Covilhã", "Remoto", "Teletrabalho"]
+    locations = [l.strip() for l in user.locations.split(',')] if user.locations else ["Covilhã", "Covilha", "Mirandela", "Remoto", "Teletrabalho"]
     yield await log_and_yield(db, user.id, f"A procurar nas localizações: {', '.join(locations)}...")
     
     try:
@@ -135,7 +131,10 @@ async def run_scraper_for_user_stream(user_id: int):
     matches_encontrados = 0
     
     for job_data in jobs_data:
-        job = db.query(Job).filter(Job.link == job_data["link"]).first()
+        job = db.query(Job).filter(
+            (Job.link == job_data["link"]) | 
+            ((Job.title == job_data["title"]) & (Job.company == job_data["company"]))
+        ).first()
         if not job:
             job = Job(
                 title=job_data["title"],
@@ -156,14 +155,7 @@ async def run_scraper_for_user_stream(user_id: int):
             
         analisadas += 1
         
-        job_text_norm = normalize_text(job.title + " " + job.location + " " + (job.description or ""))
-        is_valid_loc = any(normalize_text(loc) in job_text_norm for loc in locations)
-        
-        if not is_valid_loc:
-            match = UserJobMatch(user_id=user.id, job_id=job.id, status="Lixo")
-            db.add(match)
-            db.commit()
-            continue
+        # Filtro local desativado a pedido do utilizador - todas as vagas entram diretamente
             
         matches_encontrados += 1
         status = "Não fiz"
