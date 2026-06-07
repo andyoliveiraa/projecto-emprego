@@ -42,10 +42,10 @@ class GoogleJobsScraper:
                         })
             return jobs_list
         except ImportError:
-            print("🚨 [ERRO] A biblioteca python-jobspy não está instalada.")
+            print("[ERRO] A biblioteca python-jobspy não está instalada.")
             return []
         except Exception as e:
-            print(f"🚨 [ERRO JobSpy] Falhou a procurar vagas para {loc}: {e}")
+            print(f"[ERRO JobSpy] Falhou a procurar vagas para {loc}: {e}")
             return []
 
     async def scrape(self, locations: list[str]) -> list[dict]:
