@@ -1,83 +1,68 @@
-import aiohttp
-import os
-import urllib.parse
-from dotenv import load_dotenv
+import asyncio
 from datetime import datetime, timedelta
+import pandas as pd
 
 class GoogleJobsScraper:
     def __init__(self):
         self.last_run = None
 
+    def _run_jobspy_sync(self, loc: str) -> list[dict]:
+        try:
+            from jobspy import scrape_jobs
+            # Configura para procurar no Google, Indeed, LinkedIn e Glassdoor em simultâneo
+            jobs_df = scrape_jobs(
+                site_name=["google", "indeed", "linkedin"],
+                search_term="Empregos",
+                location=f"{loc}, Portugal",
+                results_wanted=30, # Vagas por plataforma
+                country_indeed="portugal"
+            )
+            
+            jobs_list = []
+            if jobs_df is not None and not jobs_df.empty:
+                # Preencher NA com string vazia para não quebrar
+                jobs_df = jobs_df.fillna("")
+                
+                for _, row in jobs_df.iterrows():
+                    title = row.get("title", "Vaga")
+                    company = row.get("company", "Confidencial")
+                    location = row.get("location", loc)
+                    link = row.get("job_url", "")
+                    desc = row.get("description", "Vaga encontrada pelo sistema JobSpy.")
+                    platform = row.get("site", "JobSpy Engine")
+                    
+                    if title and link:
+                        jobs_list.append({
+                            "title": str(title),
+                            "company": str(company),
+                            "location": str(location),
+                            "link": str(link),
+                            "platform": f"JobSpy ({platform})",
+                            "description": str(desc)
+                        })
+            return jobs_list
+        except ImportError:
+            print("🚨 [ERRO] A biblioteca python-jobspy não está instalada.")
+            return []
+        except Exception as e:
+            print(f"🚨 [ERRO JobSpy] Falhou a procurar vagas para {loc}: {e}")
+            return []
+
     async def scrape(self, locations: list[str]) -> list[dict]:
         jobs = []
         
-        # Limitar a execução a 2 vezes por dia (a cada 12 horas)
-        if self.last_run and (datetime.now() - self.last_run) < timedelta(hours=12):
-            print(f"[DEBUG] Google Jobs ignorado. Aguardando 12h para poupar API (Última vez: {self.last_run.strftime('%Y-%m-%d %H:%M:%S')}).")
-            return jobs
-            
-        load_dotenv()
-        api_key = os.getenv("SERPAPI_KEY")
-        jobs = []
+        # O JobSpy é pesado e completo, pode correr a cada hora perfeitamente sem limites da API
+        print("[DEBUG] A arrancar o motor JobSpy (Google, Indeed, LinkedIn, Glassdoor)...")
         
-        if not api_key:
-            print("🚨 [ERRO CRÍTICO] SERPAPI_KEY não encontrada no .env ou nas variáveis da Discloud! O Google Jobs precisa disto para funcionar.")
-            return jobs
+        for loc in locations:
+            # Corre o web scraper de forma assíncrona para não bloquear o bot (Discord/FastAPI)
+            print(f"[DEBUG] JobSpy a procurar vagas em: {loc}...")
+            loc_jobs = await asyncio.to_thread(self._run_jobspy_sync, loc)
+            jobs.extend(loc_jobs)
+            print(f"[DEBUG] JobSpy encontrou {len(loc_jobs)} vagas para {loc}.")
             
-        try:
-            async with aiohttp.ClientSession() as session:
-                for loc in locations:
-                    query_params = f"engine=google_jobs&q=Empregos&hl=pt&gl=pt&api_key={api_key}"
-                    
-                    # Passo 1: Converter a cidade (ex: Covilhã) para o Formato Canonical do Google (Locations API)
-                    loc_url = f"https://serpapi.com/locations.json?q={urllib.parse.quote(loc)}&limit=1"
-                    try:
-                        async with session.get(loc_url) as loc_resp:
-                            if loc_resp.status == 200:
-                                loc_data = await loc_resp.json()
-                                if isinstance(loc_data, list) and len(loc_data) > 0:
-                                    canonical_name = loc_data[0].get("canonical_name", "")
-                                    if canonical_name:
-                                        query_params += f"&location={urllib.parse.quote(canonical_name)}"
-                                else:
-                                    # Se a localização não existir na DB da Google (ex: Remoto), procuramos pelo texto
-                                    query_params = f"engine=google_jobs&q=Empregos+{urllib.parse.quote(loc)}&hl=pt&gl=pt&api_key={api_key}"
-                    except Exception:
-                        query_params = f"engine=google_jobs&q=Empregos+{urllib.parse.quote(loc)}&hl=pt&gl=pt&api_key={api_key}"
-
-                    # Passo 2: Fazer a pesquisa com a localização correta e infalível
-                    url = f"https://serpapi.com/search.json?{query_params}"
-                    async with session.get(url) as response:
-                        if response.status == 200:
-                            data = await response.json()
-                            if "error" in data:
-                                print(f"🚨 [ERRO SERPAPI] {data['error']}")
-                            if "jobs_results" not in data:
-                                print(f"[DEBUG] SerpApi devolveu 0 resultados para {loc}.")
-                            
-                            for result in data.get("jobs_results", [])[:20]:
-                                title = result.get("title", "Vaga Google Jobs")
-                                company = result.get("company_name", "Confidencial")
-                                location = result.get("location", loc)
-                                link = result.get("related_links", [{"link": ""}])[0].get("link", "")
-                                desc = result.get("description", "Vaga encontrada pelo Google Jobs.")
-                                
-                                jobs.append({
-                                    "title": title,
-                                    "company": company,
-                                    "location": location,
-                                    "link": link,
-                                    "platform": "Google Jobs",
-                                    "description": desc
-                                })
-                        else:
-                            print(f"[DEBUG] Google Jobs error: {response.status}")
+            # Pequena pausa entre localizações
+            await asyncio.sleep(2)
             
-            # Atualiza o timestamp apenas se chegou ao fim sem erros crasharem o script
-            if api_key:
-                self.last_run = datetime.now()
-                
-        except Exception as e:
-            print(f"GoogleJobsScraper Error: {e}")
-            
+        self.last_run = datetime.now()
         return jobs
