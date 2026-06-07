@@ -1,4 +1,5 @@
 import asyncio
+import os
 import aiohttp
 from database import SessionLocal, Job, UserJobMatch, User, SearchLog
 from scraper.manager import ScraperManager
@@ -93,8 +94,9 @@ async def run_scraper_cycle():
             db.add(match)
             db.commit()
             
-            if user.webhook_url:
-                await send_discord_webhook(user.webhook_url, job.title, job.company, job.location, "Filtro automático por palavra-chave.", job.link, job.platform)
+            hook = os.getenv("DISCORD_WEBHOOK_URL") or user.webhook_url
+            if hook:
+                await send_discord_webhook(hook, job.title, job.company, job.location, "Filtro automático por palavra-chave.", job.link, job.platform)
                 
     db.close()
     print("[Worker] Ciclo concluído.")
@@ -178,8 +180,9 @@ async def run_scraper_for_user_stream(user_id: int):
         
         yield await log_and_yield(db, user.id, f"Vaga '{job.title}' guardada no portal!", "SUCCESS")
         
-        if user.webhook_url:
-            await send_discord_webhook(user.webhook_url, job.title, job.company, job.location, "Filtro automático por palavra-chave.", job.link, job.platform)
+        hook = os.getenv("DISCORD_WEBHOOK_URL") or user.webhook_url
+        if hook:
+            await send_discord_webhook(hook, job.title, job.company, job.location, "Filtro automático por palavra-chave.", job.link, job.platform)
             yield await log_and_yield(db, user.id, "Notificação enviada para o Discord!", "SUCCESS")
             
     yield await log_and_yield(db, user.id, f"Busca terminada! {novas} novas no portal, {analisadas} para ti, {matches_encontrados} validadas e enviadas.", "SUCCESS")
