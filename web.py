@@ -144,7 +144,7 @@ async def settings_page(request: Request, current_user: User = Depends(get_curre
 
 @app.post("/settings")
 async def save_settings(
-    locations: str = Form("Covilhã,Mirandela,Remoto"),
+    locations: str = Form("Covilhã,Mirandela,Remoto,Teletrabalho"),
     webhook_url: str = Form(""),
     cv_file: UploadFile = File(None),
     db: Session = Depends(get_db),

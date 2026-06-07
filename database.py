@@ -13,7 +13,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     password_hash = Column(String)
     webhook_url = Column(String, nullable=True)
-    locations = Column(String, default="Covilhã,Mirandela,Remoto")
+    locations = Column(String, default="Covilhã,Mirandela,Remoto,Teletrabalho")
     cv_text = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     matches = relationship("UserJobMatch", back_populates="user")

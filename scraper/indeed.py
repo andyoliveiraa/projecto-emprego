@@ -23,8 +23,8 @@ class IndeedScraper:
             
             async with aiohttp.ClientSession() as session:
                 for loc in locations:
-                    query_loc = loc if loc.lower() != "remoto" else ""
-                    query_q = "Remoto" if loc.lower() == "remoto" else ""
+                    query_loc = loc if loc.lower() not in ["remoto", "teletrabalho"] else ""
+                    query_q = loc if loc.lower() in ["remoto", "teletrabalho"] else ""
                     
                     url = f"https://pt.indeed.com/jobs?q={query_q}&l={urllib.parse.quote(query_loc)}"
                     async with session.get(url, headers=headers) as response:

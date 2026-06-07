@@ -46,7 +46,7 @@ async def run_scraper_cycle():
                 all_locations.add(loc.strip())
                 
     if not all_locations:
-        all_locations = {"Covilhã", "Remoto"}
+        all_locations = {"Covilhã", "Remoto", "Teletrabalho"}
         
     print(f"[Worker] Procurando nas localizações combinadas: {all_locations}")
     jobs_data = await scraper_manager.run_all(list(all_locations))
@@ -123,7 +123,7 @@ async def run_scraper_for_user_stream(user_id: int):
 
     yield await log_and_yield(db, user.id, f"A iniciar busca forçada para {user.username}...")
     
-    locations = [l.strip() for l in user.locations.split(',')] if user.locations else ["Covilhã", "Remoto"]
+    locations = [l.strip() for l in user.locations.split(',')] if user.locations else ["Covilhã", "Remoto", "Teletrabalho"]
     yield await log_and_yield(db, user.id, f"A procurar nas localizações: {', '.join(locations)}...")
     
     try:
