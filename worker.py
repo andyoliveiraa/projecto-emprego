@@ -2,7 +2,6 @@ import asyncio
 import aiohttp
 from database import SessionLocal, Job, UserJobMatch, User, SearchLog
 from scraper.manager import ScraperManager
-from matcher import filter_job_without_cv
 import unicodedata
 import json
 
@@ -82,26 +81,20 @@ async def run_scraper_cycle():
                 db.commit()
                 continue
                 
-            print(f"[Worker] IA a validar vaga '{job.title}'...")
-            match_info = filter_job_without_cv(job.title, job.description, job.location, user_locs)
-            
-            status = "Não fiz" if match_info["is_valid"] else "Lixo"
+            status = "Não fiz"
                 
             match = UserJobMatch(
                 user_id=user.id,
                 job_id=job.id,
                 match_score=0.0,
-                match_reason=match_info["reason"],
+                match_reason="Adicionada diretamente (Sem IA)",
                 status=status
             )
             db.add(match)
             db.commit()
             
-            if status != "Lixo" and user.webhook_url:
-                await send_discord_webhook(user.webhook_url, job.title, job.company, job.location, match.match_reason, job.link, job.platform)
-                
-            print(f"[Worker] Validado: {match_info['is_valid']} - A aguardar 16 segundos...")
-            await asyncio.sleep(16)
+            if user.webhook_url:
+                await send_discord_webhook(user.webhook_url, job.title, job.company, job.location, "Filtro automático por palavra-chave.", job.link, job.platform)
                 
     db.close()
     print("[Worker] Ciclo concluído.")
@@ -170,36 +163,26 @@ async def run_scraper_for_user_stream(user_id: int):
             db.commit()
             continue
             
-        try:
-            match_info = filter_job_without_cv(job.title, job.description, job.location, locations)
+        matches_encontrados += 1
+        status = "Não fiz"
             
-            status = "Não fiz" if match_info["is_valid"] else "Lixo"
-            if match_info["is_valid"]:
-                matches_encontrados += 1
-                
-            match = UserJobMatch(
-                user_id=user.id,
-                job_id=job.id,
-                match_score=0.0,
-                match_reason=match_info["reason"],
-                status=status
-            )
-            db.add(match)
-            db.commit()
+        match = UserJobMatch(
+            user_id=user.id,
+            job_id=job.id,
+            match_score=0.0,
+            match_reason="Adicionada diretamente (Sem IA)",
+            status=status
+        )
+        db.add(match)
+        db.commit()
+        
+        yield await log_and_yield(db, user.id, f"Vaga '{job.title}' guardada no portal!", "SUCCESS")
+        
+        if user.webhook_url:
+            await send_discord_webhook(user.webhook_url, job.title, job.company, job.location, "Filtro automático por palavra-chave.", job.link, job.platform)
+            yield await log_and_yield(db, user.id, "Notificação enviada para o Discord!", "SUCCESS")
             
-            level = "SUCCESS" if match_info['is_valid'] else "INFO"
-            yield await log_and_yield(db, user.id, f"Válido: {match_info['is_valid']} - Motivo: {match_info['reason'][:60]}...", level)
-            
-            if status != "Lixo" and user.webhook_url:
-                await send_discord_webhook(user.webhook_url, job.title, job.company, job.location, match.match_reason, job.link, job.platform)
-                yield await log_and_yield(db, user.id, "Notificação enviada para o Discord!", "SUCCESS")
-            
-            yield await log_and_yield(db, user.id, "Aguardando 16 segundos para respeitar limite da API...")
-            await asyncio.sleep(16)
-        except Exception as e:
-            yield await log_and_yield(db, user.id, f"Erro de IA: {str(e)}", "ERROR")
-            
-    yield await log_and_yield(db, user.id, f"Busca terminada! {novas} novas no portal, {analisadas} para ti, {matches_encontrados} passaram no filtro IA.", "SUCCESS")
+    yield await log_and_yield(db, user.id, f"Busca terminada! {novas} novas no portal, {analisadas} para ti, {matches_encontrados} validadas e enviadas.", "SUCCESS")
     db.close()
 
 async def worker_loop():
