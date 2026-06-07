@@ -119,7 +119,7 @@ def render_dashboard(request, current_user, db, target_status, current_page, loc
     if loc:
         matches = [m for m in matches if m.job.location and normalize_text(loc) in normalize_text(m.job.location)]
     
-    matches.sort(key=lambda x: (1 if x.job.location and "covilha" in normalize_text(x.job.location) else 0, x.match_score or 0), reverse=True)
+    matches.sort(key=lambda x: (1 if x.job.location and "covilha" in normalize_text(x.job.location) else 0, x.job.discovered_at.timestamp() if x.job.discovered_at else 0), reverse=True)
     matches = matches[:100]
     
     return templates.TemplateResponse(

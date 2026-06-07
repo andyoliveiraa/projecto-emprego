@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 from database import SessionLocal, Job, UserJobMatch, User, SearchLog
 from scraper.manager import ScraperManager
-from matcher import match_job_with_cv
+from matcher import filter_job_without_cv
 import unicodedata
 import json
 
@@ -12,7 +12,7 @@ def normalize_text(text: str) -> str:
     if not text: return ""
     return unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('utf-8').lower()
 
-async def send_discord_webhook(webhook_url: str, title: str, company: str, location: str, match_score: float, match_reason: str, link: str, platform: str):
+async def send_discord_webhook(webhook_url: str, title: str, company: str, location: str, match_reason: str, link: str, platform: str):
     if not webhook_url: return
     
     embed = {
@@ -23,7 +23,6 @@ async def send_discord_webhook(webhook_url: str, title: str, company: str, locat
             {"name": "Empresa", "value": company, "inline": True},
             {"name": "Localização", "value": location, "inline": True},
             {"name": "Plataforma", "value": platform, "inline": False},
-            {"name": "Match Score", "value": f"{match_score}%", "inline": True},
             {"name": "Motivo IA", "value": match_reason, "inline": False}
         ]
     }
@@ -83,33 +82,25 @@ async def run_scraper_cycle():
                 db.commit()
                 continue
                 
-            if not user.cv_text:
-                match = UserJobMatch(user_id=user.id, job_id=job.id, status="Não fiz")
-                db.add(match)
-                db.commit()
-                continue
-                
-            print(f"[Worker] IA a calcular Match para utilizador '{user.username}' com vaga '{job.title}'...")
-            match_info = match_job_with_cv(job.title, job.description, job.location, user_locs, user.cv_text)
+            print(f"[Worker] IA a validar vaga '{job.title}'...")
+            match_info = filter_job_without_cv(job.title, job.description, job.location, user_locs)
             
-            status = "Não fiz"
-            if match_info["score"] == 0:
-                status = "Lixo"
+            status = "Não fiz" if match_info["is_valid"] else "Lixo"
                 
             match = UserJobMatch(
                 user_id=user.id,
                 job_id=job.id,
-                match_score=match_info["score"],
+                match_score=0.0,
                 match_reason=match_info["reason"],
                 status=status
             )
             db.add(match)
             db.commit()
             
-            if match.match_score > 50 and status != "Lixo" and user.webhook_url:
-                await send_discord_webhook(user.webhook_url, job.title, job.company, job.location, match.match_score, match.match_reason, job.link, job.platform)
+            if status != "Lixo" and user.webhook_url:
+                await send_discord_webhook(user.webhook_url, job.title, job.company, job.location, match.match_reason, job.link, job.platform)
                 
-            print(f"[Worker] IA Score {match_info['score']}% - A aguardar 16 segundos (Limite de API Gemini)...")
+            print(f"[Worker] Validado: {match_info['is_valid']} - A aguardar 16 segundos...")
             await asyncio.sleep(16)
                 
     db.close()
@@ -179,42 +170,31 @@ async def run_scraper_for_user_stream(user_id: int):
             db.commit()
             continue
             
-        if not user.cv_text:
-            yield await log_and_yield(db, user.id, f"Sem CV para a vaga '{job.title}'. Marcado como Pendente.", "WARNING")
-            match = UserJobMatch(user_id=user.id, job_id=job.id, status="Não fiz")
-            db.add(match)
-            db.commit()
-            continue
-            
-        yield await log_and_yield(db, user.id, f"A enviar para IA: '{job.title}'...")
-        
         try:
-            match_info = match_job_with_cv(job.title, job.description, job.location, locations, user.cv_text)
+            match_info = filter_job_without_cv(job.title, job.description, job.location, locations)
             
-            status = "Não fiz"
-            if match_info["score"] == 0:
-                status = "Lixo"
-            else:
+            status = "Não fiz" if match_info["is_valid"] else "Lixo"
+            if match_info["is_valid"]:
                 matches_encontrados += 1
                 
             match = UserJobMatch(
                 user_id=user.id,
                 job_id=job.id,
-                match_score=match_info["score"],
+                match_score=0.0,
                 match_reason=match_info["reason"],
                 status=status
             )
             db.add(match)
             db.commit()
             
-            level = "SUCCESS" if match_info['score'] > 50 else "INFO"
-            yield await log_and_yield(db, user.id, f"Resultado IA: {match_info['score']}% - Motivo: {match_info['reason'][:60]}...", level)
+            level = "SUCCESS" if match_info['is_valid'] else "INFO"
+            yield await log_and_yield(db, user.id, f"Válido: {match_info['is_valid']} - Motivo: {match_info['reason'][:60]}...", level)
             
-            if match.match_score > 50 and status != "Lixo" and user.webhook_url:
-                await send_discord_webhook(user.webhook_url, job.title, job.company, job.location, match.match_score, match.match_reason, job.link, job.platform)
+            if status != "Lixo" and user.webhook_url:
+                await send_discord_webhook(user.webhook_url, job.title, job.company, job.location, match.match_reason, job.link, job.platform)
                 yield await log_and_yield(db, user.id, "Notificação enviada para o Discord!", "SUCCESS")
             
-            yield await log_and_yield(db, user.id, "Aguardando 16 segundos para respeitar limite da Google API...")
+            yield await log_and_yield(db, user.id, "Aguardando 16 segundos para respeitar limite da API...")
             await asyncio.sleep(16)
         except Exception as e:
             yield await log_and_yield(db, user.id, f"Erro de IA: {str(e)}", "ERROR")

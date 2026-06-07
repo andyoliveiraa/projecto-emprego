@@ -137,16 +137,6 @@
             color: var(--text-secondary);
             font-size: 0.875rem;
         }
-        .match-score {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            background-color: var(--accent-light);
-            color: #d8b4fe;
-            align-self: flex-start;
-        }
         .reason {
             margin-top: 1rem;
             font-size: 0.875rem;
@@ -409,9 +399,6 @@
                     <div class="info-tag">🌐 {{ match.job.platform }}</div>
                 </div>
                 
-                {% if match.match_score %}
-                <div class="match-score">Match: {{ match.match_score }}%</div>
-                {% endif %}
                 
                 {% if match.match_reason %}
                 <div class="reason">{{ match.match_reason }}</div>

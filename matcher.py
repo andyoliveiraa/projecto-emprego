@@ -6,18 +6,20 @@ from dotenv import load_dotenv
 import json
 from llm_manager import generate_with_fallback
 
-def match_job_with_cv(job_title: str, job_description: str, job_location: str, target_locations: list[str], cv_text: str) -> dict:
-    if not cv_text or not job_description:
-        return {"score": 0.0, "reason": "CV or Job description missing."}
+def filter_job_without_cv(job_title: str, job_description: str, job_location: str, target_locations: list[str]) -> dict:
+    if not job_description:
+        return {"is_valid": False, "reason": "Sem descrição disponível."}
         
     prompt = f"""
-    You are an expert tech recruiter and AI assistant.
-    I will provide you with a Job Title, a Job Description and a Candidate's CV.
-    Your task is to analyze how well the CV matches the Job Description.
+    You are an AI assistant.
+    I will provide you with a Job Title and a Job Description.
+    Your task is ONLY to verify two conditions:
+    1. Is the job description written in Portuguese?
+    2. Does the job explicitly locate in or allow remote work from these specific locations: {", ".join(target_locations)}?
 
-    CRITICAL RULE 1: If the Job Description is written in English or any language other than Portuguese, you MUST return a score of 0, and the reason should be "A vaga não está escrita em Português."
+    CRITICAL RULE 1: If the Job Description is written in English or any language other than Portuguese, you MUST return is_valid as false, and the reason should be "A vaga não está escrita em Português."
     
-    CRITICAL RULE 2: The candidate is ONLY looking for jobs in these locations: {", ".join(target_locations)}. Carefully read the Job Title ("{job_title}"), the stated location ("{job_location}"), and the Job Description. If the true location of the job does not explicitly match one of the target locations (for example, if it is located in the United States, Brazil, or a different city in Portugal that is not Remote), you MUST return a score of 0, and the reason should be "A vaga não é na localização pretendida."
+    CRITICAL RULE 2: Carefully read the Job Title ("{job_title}"), the stated location ("{job_location}"), and the Job Description. If the true location of the job does not explicitly match one of the target locations (for example, if it is located in the United States, Brazil, or a different city in Portugal that is not Remote), you MUST return is_valid as false, and the reason should be "A vaga não é na localização pretendida."
 
     Job Title:
     {job_title}
@@ -25,12 +27,9 @@ def match_job_with_cv(job_title: str, job_description: str, job_location: str, t
     Job Description:
     {job_description}
 
-    Candidate CV:
-    {cv_text}
-
     Return the result strictly as a valid JSON object with two keys:
-    "score": a number from 0 to 100 representing the match percentage.
-    "reason": a short, concise sentence (in Portuguese) explaining the score and why they match (or don't match).
+    "is_valid": a boolean (true or false).
+    "reason": a short, concise sentence (in Portuguese) explaining why.
     Do not return markdown, just the JSON string.
     """
     
@@ -51,12 +50,12 @@ def match_job_with_cv(job_title: str, job_description: str, job_location: str, t
             
         result = json.loads(text)
         return {
-            "score": float(result.get("score", 0)),
+            "is_valid": bool(result.get("is_valid", False)),
             "reason": result.get("reason", "No reason provided.")
         }
     except Exception as e:
-        print(f"Error matching CV: {e}")
-        return {"score": 0.0, "reason": "Error during analysis."}
+        print(f"Error filtering job: {e}")
+        return {"is_valid": False, "reason": "Erro durante a análise IA."}
 
 def adapt_cv_anti_ai(cv_text: str, job_title: str, job_description: str) -> str:
     """ Adapta o currículo e passa-o por um detetor de IA interno para garantir humanidade. """
